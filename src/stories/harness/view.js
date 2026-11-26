@@ -35,8 +35,9 @@ function describe(sc, info, t, end) {
 }
 
 /* the story element for scenario sc. args carry the shared controls (time, playing, rate, focus, zoom, scale);
-   label is the canvas's accessible name. extra(ctx, t) may draw over the frame (a guide, say) */
-export function stage(sc, args, { label, extra } = {}) {
+   label is the canvas's accessible name. after(info) runs once the game is at the time and before it is drawn (to
+   set up the HUD, say); extra(ctx, t) may draw over the frame */
+export function stage(sc, args, { label, extra, after } = {}) {
   const end = duration(sc), scale = args.scale || 2, zoom = args.zoom || 1;
   const root = document.createElement('figure');
   root.style.cssText = 'margin: 0; display: grid; gap: 6px; font: 12px/1.4 ui-monospace, Menlo, monospace; color: #1c1b19;';
@@ -51,7 +52,9 @@ export function stage(sc, args, { label, extra } = {}) {
   const out = view.getContext('2d');
   out.imageSmoothingEnabled = false;
   const show = t => {
-    const info = play(sc, t), src = render();
+    const info = play(sc, t);
+    if (after) after(info);
+    const src = render();
     const at = zoom > 1 && (FOCUS[args.focus] || FOCUS.lane)();
     const sw = W / zoom, sh = H / zoom;
     const sx = at ? Math.max(0, Math.min(W - sw, Math.round(at.sx - sw / 2))) : 0, sy = at ? Math.max(0, Math.min(H - sh, Math.round(at.sy - sh / 2))) : 0;
