@@ -4,6 +4,12 @@ const CREDITS = [
   ['Concept by', 'abhi', 'https://x.com/awwbhi2'],
   ['Game by', 'AmirMushich', 'https://x.com/AmirMushich'],
 ];
+// the About popup, one paragraph per line: text, and [text, url] for a link
+const ABOUT = [
+  ['Gully Cricket by ', ['Varun', 'https://varun.ca']],
+  ['Based on the original concept by ', ['abhi', 'https://x.com/awwbhi2'], ' and games by ', ['AmirMushich', 'https://x.com/AmirMushich']],
+  [['Pixel Plays on GitHub', 'https://github.com/amirmushichge/pixel-plays']],
+];
 const css = `
   .pp-link { font: inherit; color: #8b877f; background: none; border: 0; padding: 10px; margin: 0; cursor: pointer; }
   .pp-link:hover, .pp-link:focus-visible { color: #1c1b19; }
@@ -45,9 +51,11 @@ export function mount({ title: heading, rules: ruleList, music }) {
   rulesOpen.textContent = 'Rules';
 
   const about = popup('pp-about', 'About');
-  const aboutLine = document.createElement('p');
-  aboutLine.append(...creditLine());
-  about.body.append(aboutLine);
+  about.body.append(...ABOUT.map(parts => {
+    const line = document.createElement('p');
+    line.append(...parts.map(part => typeof part === 'string' ? part : outLink(...part)));
+    return line;
+  }));
   const aboutOpen = opener('pp-about-open', about.dialog);
   aboutOpen.setAttribute('aria-label', 'About');
   aboutOpen.setAttribute('aria-haspopup', 'dialog');
@@ -94,14 +102,16 @@ function opener(id, dialog) {
   return button;
 }
 function creditLine() {
-  return CREDITS.flatMap(([label, name, url], i) => {
-    const link = document.createElement('a');
-    link.href = url;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    link.textContent = name;
-    return [(i ? ' and ' : '') + label + ' ', link];
-  });
+  return CREDITS.flatMap(([label, name, url], i) => [(i ? ' and ' : '') + label + ' ', outLink(name, url)]);
+}
+// a link that opens in a new tab
+function outLink(text, url) {
+  const link = document.createElement('a');
+  link.href = url;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.textContent = text;
+  return link;
 }
 // the track loops from the first gesture, because browsers block sound before one.
 // The game's own sound button mutes it too.
