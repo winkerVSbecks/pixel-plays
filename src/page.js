@@ -1,4 +1,4 @@
-// the page chrome around the game: the Rules and About popups, the credits and the music
+// the page chrome around the game: the Rules and About popups and the music
 import { mount } from './shell.js';
 
 mount({

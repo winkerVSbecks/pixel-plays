@@ -42,7 +42,7 @@ Vercel runs `npm run build` and serves `dist/` (see `vercel.json`). Old `/cricke
 
 ## Files
 - `index.html` is the page: the canvas, the HUD and the team picker's markup and styles. It loads `src/main.js`.
-- `src/main.js` mounts the page chrome (`src/page.js`, using `src/shell.js`: the Rules and About popups, the credits and the music), then starts the game.
+- `src/main.js` mounts the page chrome (`src/page.js`, using `src/shell.js`: the Rules and About popups and the music), then starts the game.
 - `src/engine.js` is the renderer: camera, depth buffer, colour ramps, shadows, edges, figures, trees and wind. `createTarget(canvas)` gives a canvas its own buffers and `useTarget(target)` draws to it, so several canvases can each show a scene.
 - `src/game.js` boots the game: the pause rule, the frame loop and the test controls on `window.__cricket` (freeze, seed, step, advance, swing, setDifficulty, simulate and more).
 - `src/game/` holds the game's parts as modules: `constants` (layout, bowling, teams, fields), `scene` (the baked lane), `state` (`G`), `rng` (the seeded mulberry32 sequence), `screen` (the page canvas as the render target), `figures`, `bowler`, `delivery`, `ball`, `fielding`, `match`, `celebration`, `batter`, `fx`, `update` (one step of `dt` seconds), `draw`, `hud`, `input` (aim and the grounded and aerial shots), `sound`, `picker` (the welcome screen), `difficulty` (the five levels) and `simulate` (headless seeded balls that tally what each shot type does).

@@ -58,7 +58,7 @@ export function endMatch() {
   G.phase = 'over';
   m.endT = G.time;
   // the result goes up in the scoreboard (renderHud); the status line only asks for the tap, so a long result never
-  // runs into the credits at the foot of the page. It is still read out from the status line
+  // runs into the buttons at the foot of the page. It is still read out from the status line
   const text = resultText(m);
   G.status = text + ' · tap to play again';
   const sr = document.createElement('span');

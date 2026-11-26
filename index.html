@@ -21,7 +21,7 @@
   #you { color: var(--a); } #rival { color: var(--b); }
   #status { color: var(--muted); text-wrap: balance; }
   #need, #over-row { color: var(--muted); font-variant-numeric: tabular-nums; }
-  /* the result takes the need row at the top, clear of the shared credits at the bottom */
+  /* the result takes the need row at the top, clear of the status line and buttons at the bottom */
   #need.result { color: var(--ink); max-width: calc(100vw - 32px); }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   #over-row:not([hidden]) { display: flex; }
@@ -69,9 +69,9 @@
   /* the kit as a swatch: a solid chip of the team's shirt colour */
   .swatch { width: 30px; height: 22px; border: 1px solid var(--ink); background: var(--body); }
   .buttons { display: flex; gap: 20px; flex-shrink: 0; white-space: nowrap; }
-  /* the touch aerial toggle, under the right thumb above the bottom bar and the credits (which step up to 72px on a
-     narrow screen): armed, it reads as pressed (ink and paper swapped) until the ball is over */
-  #loft { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(108px, calc(env(safe-area-inset-bottom) + 94px)); z-index: 5;
+  /* the touch aerial toggle, under the right thumb just above the bottom bar (clear of a status line wrapped to three
+     lines on a narrow screen): armed, it reads as pressed (ink and paper swapped) until the ball is over */
+  #loft { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(72px, calc(env(safe-area-inset-bottom) + 58px)); z-index: 5;
     margin: 0; padding: 8px 14px; border: 1px solid currentColor; color: var(--ink); background: var(--paper); touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   #loft[aria-pressed="true"] { color: var(--paper); background: var(--ink); border-color: var(--ink); }
   #loft[hidden] { display: none; }

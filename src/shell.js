@@ -1,9 +1,5 @@
-// Page chrome: About and Rules popups (top right), credits (bottom centre) and background music.
+// Page chrome: About and Rules popups (top right) and background music. The credits live in About and on the welcome screen.
 const MUSIC_VOLUME = .4;
-const CREDITS = [
-  ['Concept by', 'abhi', 'https://x.com/awwbhi2'],
-  ['Game by', 'AmirMushich', 'https://x.com/AmirMushich'],
-];
 // the About popup, one paragraph per line: text, and [text, url] for a link
 const ABOUT = [
   ['Gully Cricket by ', ['Varun', 'https://varun.ca']],
@@ -27,12 +23,6 @@ const css = `
   .pp-dialog a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
   .pp-dialog form { text-align: right; }
   .pp-dialog .pp-link { margin: 0 -10px -10px; color: #1c1b19; touch-action: manipulation; }
-  #pp-credits { position: fixed; bottom: max(14px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); z-index: 4; margin: 0; color: #6b675f; white-space: nowrap; pointer-events: none; }
-  #pp-credits a { color: inherit; text-decoration: underline; text-underline-offset: 2px; pointer-events: auto; }
-  #pp-credits a:hover, #pp-credits a:focus-visible { color: #1c1b19; }
-  /* long end-of-game status lines run towards the centre, so the credits step above them */
-  @media (max-width: 1200px) { #pp-credits { bottom: max(38px, calc(env(safe-area-inset-bottom) + 24px)); } }
-  @media (max-width: 600px) { #pp-credits { bottom: max(72px, calc(env(safe-area-inset-bottom) + 58px)); } }
 `;
 export function mount({ title: heading, rules: ruleList, music }) {
   const style = document.createElement('style');
@@ -66,12 +56,7 @@ export function mount({ title: heading, rules: ruleList, music }) {
   top.id = 'pp-top';
   top.append(aboutOpen, rulesOpen);
 
-  // one line that reads "Concept by abhi and Game by AmirMushich", each name linking to its author
-  const credits = document.createElement('p');
-  credits.id = 'pp-credits';
-  credits.append(...creditLine());
-
-  document.body.append(top, rules.dialog, about.dialog, credits);
+  document.body.append(top, rules.dialog, about.dialog);
   startMusic(music);
 }
 // a modal in the Rules chrome: a title, a body and a Close button. Esc closes it (the browser's own dialog
@@ -100,9 +85,6 @@ function opener(id, dialog) {
   button.className = 'pp-link';
   button.addEventListener('click', () => dialog.showModal());
   return button;
-}
-function creditLine() {
-  return CREDITS.flatMap(([label, name, url], i) => [(i ? ' and ' : '') + label + ' ', outLink(name, url)]);
 }
 // a link that opens in a new tab
 function outLink(text, url) {
