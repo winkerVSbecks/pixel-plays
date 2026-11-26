@@ -1,8 +1,9 @@
 // The lane baked once into the target's background buffers: ground, houses, props, trees and grass.
 import {
-  applyShadows, bakedPix, bakedZ, bakeOcclusion, bayerAt, box, capsule, capture, castShadow, clamp, COS,
-  flushShadows, GRASS, ground, groundZ, growGrass, growTree, H, hash, KIND_GRASS, kinds, leaves, lerp, noise,
-  pendingShadows, pix, plot, R2, rampOf, rgb, setCapture, shadowMask, sphere, staticShadow, unproject, W, zb,
+  applyShadows, bakedPix, bakedZ, bakeOcclusion, bayerAt, box, capsule, capture, castShadow, clamp, COS, ctx,
+  drawLeaves, drawTufts, flushShadows, GRASS, ground, groundZ, growGrass, growTree, H, hash, image, KIND_GRASS,
+  kinds, leaves, lerp, noise, pendingShadows, pix, plot, R2, rampOf, rgb, setCapture, shadeEdges, shadowMask,
+  sphere, staticShadow, STILL, unproject, W, WIND_FPS, zb,
 } from '../engine.js';
 import {
   ASPHALT, BACKSTOP, BOWL_LINE_X, BRICK, BRICK_X, BRICKWORK, CHALK, CHALK_DIM, CHALK_X, CHALK_Y, CREASE_X,
@@ -296,4 +297,18 @@ export function bake() {
 
   bakedPix.set(pix);
   bakedZ.set(zb);
+}
+/* the baked lane on its own, with no figures or ball: the frame draw() starts from, with the wind at time t (seconds)
+   and the same shadow and edge passes. For a canvas that only shows the ground, such as a story */
+export function drawGround(t = 0) {
+  pix.set(bakedPix);
+  zb.set(bakedZ);
+  pendingShadows.length = 0;
+  const windT = STILL ? 0 : Math.floor(t * WIND_FPS) / WIND_FPS;
+  drawLeaves(windT);
+  drawTufts(windT);
+  flushShadows();
+  applyShadows(bakedZ);
+  shadeEdges();
+  ctx.putImageData(image, 0, 0);
 }
