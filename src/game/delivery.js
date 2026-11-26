@@ -1,7 +1,7 @@
 // One delivery: bowl() plans it, ballAt() reads its flight by time, and a swing is graded and struck.
 import { clamp, figure, lerp } from '../engine.js';
 import {
-  AIM_X, BACKSTOP, BALL_R, BOUNCE, BOWLER, BOWLER_YAW, BOWLERS, BRICK, CHALK_X, CONTACT_X, CROSS, crossOf,
+  AIM_X, BACKSTOP, BALL_R, BOUNCE, BOWLER, BOWLER_YAW, BOWLERS, BRICK, CHALK_X, CONTACT_X, crossOf,
   DIR_WORLD, GLANCE, GLANCE_LIFT, GLANCE_PACE, GRAVITY, LEG, LEG_SIDE, LINE_ODDS, LINES, OFF_SIDE, PITCH_Y,
   DEFAULT_SHOT, GROUND_SAFE, REACT, RELEASE_X, SHOT_TYPES, SHOTS, STUMPS_FACE,
 } from './constants.js';
@@ -14,6 +14,7 @@ import { fieldFor, setField } from './match.js';
 import { burst, DUST, SPARK } from './fx.js';
 import { BAT_SWING, batterAt, planSwing } from './batter.js';
 import { sfx } from './sound.js';
+import { difficulty } from './difficulty.js';
 
 // start a delivery now. opts (and G.force) may fix: type 'fast'|'spin', line 'stumps'|'off'|'leg', move 'in'|'away'|'none',
 // amount (sideways movement at the stumps), offset (aim at the stumps relative to PITCH_Y), length (pitching x)
@@ -32,7 +33,7 @@ export function bowl(opts = {}) {
   const type = f.type || G.overType, B = BOWLERS[type];
   const line = f.line || pickOne(LINE_ODDS);
   const move = f.move || pickOne(B.moves);
-  const amount = move === 'none' ? 0 : f.amount != null ? f.amount : range(B.move);
+  const amount = move === 'none' ? 0 : f.amount != null ? f.amount : range(B.move.map(v => v * difficulty().move));
   const aim = PITCH_Y + (f.offset != null ? f.offset : range(LINES[line]));
   const px = f.length != null ? f.length : range(B.pitch);
   G.balls++; G.ballInOver++;
@@ -125,6 +126,7 @@ export function strike(d) {
     flat = Math.cos(lift * Math.PI / 180) * speed;
   }
   // played across a ball that moved: pushed towards the movement and slower, or a thin edge (see CROSS)
+  const CROSS = difficulty().cross;
   const cross = f.cross != null ? f.cross : crossOf(d, sw.dir) * CROSS.timing[Math.min(sw.timed, 2)], side = Math.sign(d.end - d.aim);
   let edge = false;
   if (cross > 0) {

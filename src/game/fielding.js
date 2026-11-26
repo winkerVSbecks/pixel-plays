@@ -1,7 +1,7 @@
 // Fielding: who chases a hit ball, catches and gathers, and how a live ball ends.
 import { clamp } from '../engine.js';
 import {
-  BACKSTOP, BOWLED_HALF, BOWLER_CATCH_R, BOWLER_CATCH_Z, BOWLER_HOT, CATCH_HOT, CATCH_R, CATCH_REACT, CATCH_RUN,
+  BACKSTOP, BOWLED_HALF, CATCH_HOT, CATCH_R,
   CATCH_Z, DIRS, DONE_T, DROP, GATHER_R, GATHER_Z, GRADES, LIVE_MAX, PHYS_DT, PITCH_Y, REACT, RUN_DIST,
   RUN_SPEED,
 } from './constants.js';
@@ -14,6 +14,7 @@ import { scoreBall } from './match.js';
 import { startCelebration } from './celebration.js';
 import { burst, DUST } from './fx.js';
 import { sfx } from './sound.js';
+import { difficulty } from './difficulty.js';
 
 /* ---------- fielding ----------
    At the hit the ball's whole path is replayed ahead of time (same fixed steps, so it is exact) to find the first
@@ -24,15 +25,16 @@ export const team = () => [G.bowler, ...G.fielders];
 // is gathered as if it had bounced
 const onFull = b => !b.touched && !b.grounded;
 const canCatch = b => onFull(b) && b.z <= CATCH_Z;
-const canGather = (b, f) => f === G.bowler && Math.hypot(b.vx, b.vy, b.vz) > BOWLER_HOT ? false
-  : !onFull(b) ? b.z <= GATHER_Z : b.z <= (f === G.bowler ? BOWLER_CATCH_Z : CATCH_Z);
-const reachOf = (b, f) => !onFull(b) ? GATHER_R : f === G.bowler ? BOWLER_CATCH_R : CATCH_R;
+// (catching and the bowler's return catch get sharper with the difficulty; see difficulty.js)
+const canGather = (b, f) => f === G.bowler && Math.hypot(b.vx, b.vy, b.vz) > difficulty().bowlerHot ? false
+  : !onFull(b) ? b.z <= GATHER_Z : b.z <= (f === G.bowler ? difficulty().bowlerCatchZ : CATCH_Z);
+const reachOf = (b, f) => !onFull(b) ? GATHER_R : f === G.bowler ? difficulty().bowlerCatchR : CATCH_R;
 export function planChase(ball, react) {
-  const sim = { ...ball }, players = team();
+  const sim = { ...ball }, players = team(), { catchReact, catchRun } = difficulty();
   while (sim.t < LIVE_MAX) {
     stepBall(sim, PHYS_DT);
     if (sim.event || sim.gone) break;
-    const air = onFull(sim), run = air ? Math.max(0, sim.t - ball.t - react * CATCH_REACT / REACT) * CATCH_RUN : Math.max(0, sim.t - ball.t - react) * RUN_SPEED;
+    const air = onFull(sim), run = air ? Math.max(0, sim.t - ball.t - react * catchReact / REACT) * catchRun : Math.max(0, sim.t - ball.t - react) * RUN_SPEED;
     // (the bowler cannot run for a catch: he only takes one that comes to him; once it lands he chases like anyone)
     for (const f of players) if (canGather(sim, f) && Math.hypot(f.x - sim.x, f.y - sim.y) <= (f === G.bowler && air ? 0 : run) + reachOf(sim, f)) return { f, t: sim.t, x: sim.x, y: sim.y, air, react };
     if (sim.still) break;
@@ -43,10 +45,10 @@ export function planChase(ball, react) {
 }
 export const RUN_POSE = { lean: .3 };
 function stepFielders(d, dt) {
-  const b = G.ball, c = d.chase;
+  const b = G.ball, c = d.chase, { catchReact, catchRun } = difficulty();
   for (const f of team()) {
-    if (f === c.f && b.t - d.tReact - (c.air ? c.react * (CATCH_REACT / REACT - 1) : 0) >= 0) {
-      const dx = c.x - f.x, dy = c.y - f.y, gap = Math.hypot(dx, dy), go = Math.min(gap, (c.air ? CATCH_RUN : RUN_SPEED) * dt);
+    if (f === c.f && b.t - d.tReact - (c.air ? c.react * (catchReact / REACT - 1) : 0) >= 0) {
+      const dx = c.x - f.x, dy = c.y - f.y, gap = Math.hypot(dx, dy), go = Math.min(gap, (c.air ? catchRun : RUN_SPEED) * dt);
       if (gap > 1e-6) { f.x += dx / gap * go; f.y += dy / gap * go; f.yaw = Math.atan2(dy, dx); }
       f.running = gap > .02;
     } else if (f !== G.bowler || b.t > .3) f.yaw = facing(f, b);

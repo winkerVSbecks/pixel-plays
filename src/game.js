@@ -21,6 +21,7 @@ import { aimDir, heldArrows, heldDirKeys, keyDir, setHookAim, shotFor } from './
 import { audio, ensureAudio, muted, sfx } from './game/sound.js';
 import { chooseTeam, openPicker } from './game/picker.js';
 import { simulate } from './game/simulate.js';
+import { difficulty, LEVELS, setDifficulty } from './game/difficulty.js';
 
 /* ---------- boot ---------- */
 addEventListener('resize', fit);
@@ -125,6 +126,9 @@ window.__cricket = {
   // simulate({ shot, balls, seed, timing, dir }): many seeded balls headless, tallied (see game/simulate.js), e.g.
   // simulate({ shot: 'air', timing: 'perfect' }) against simulate({ shot: 'ground', timing: 'perfect' })
   simulate,
+  // difficulty, 1 to 5 stars (see game/difficulty.js): setDifficulty(n) sets it for the next ball and the next
+  // match's target (it is not saved; the welcome screen saves its own choice); difficulty() is the level in play
+  setDifficulty(stars) { const lv = setDifficulty(stars); renderHud(); return lv; }, difficulty, LEVELS,
   // sound: play one effect now (starts the audio context if the page allows it); audio() is its state, or null
   sound(kind, amount) { ensureAudio(); sfx(kind, amount); return audio && audio.state; },
   audio: () => audio && { state: audio.state, muted },

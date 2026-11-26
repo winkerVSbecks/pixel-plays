@@ -15,6 +15,7 @@ import { actorBody, CELE_KIDS } from './celebration.js';
 import { drawFx } from './fx.js';
 import { drawBatter } from './batter.js';
 import { aimDir } from './input.js';
+import { difficulty } from './difficulty.js';
 
 // a little jump, out of step by k
 export const hop = (age, k) => age < CHEER_T ? .16 * Math.abs(Math.sin(age * 11 + k * 1.3)) * (1 - age / CHEER_T) : 0;
@@ -103,7 +104,7 @@ function drawMarker(d) {
   drawDots(outer, INK);
   drawDots(ring, SIGNAL);
   drawDots([[p.sx, p.sy], [p.sx - 1, p.sy], [p.sx + 1, p.sy], [p.sx, p.sy - 1], [p.sx, p.sy + 1]], SIGNAL);
-  if (d.move === 'none') return;
+  if (d.move === 'none' || !difficulty().wedge) return;
   const q = project(d.P.x, d.P.y + Math.sign(d.end - d.aim), 0);
   let ux = q.sx - p.sx, uy = q.sy - p.sy;
   const n = Math.hypot(ux, uy);
@@ -185,7 +186,7 @@ export function draw() {
   if (G.phase !== 'pick') {
     drawRose();
     if ((d.stage === 'runup' || d.stage === 'flight') && !d.bounced) drawMarker(d);
-    if (d.stage === 'flight') drawCue(d);
+    if (d.stage === 'flight' && difficulty().cue) drawCue(d);
   }
   ctx.putImageData(image, 0, 0);
 }
