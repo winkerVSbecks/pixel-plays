@@ -14,7 +14,8 @@ const css = `
   #pp-about-open { display: grid; place-items: center; padding: 10px; touch-action: manipulation; }
   #pp-about-open svg { display: block; width: 17px; height: 17px; }
   #pp-rules-open { touch-action: manipulation; }
-  .pp-dialog { width: min(340px, calc(100vw - 32px)); padding: 16px; border: 1px solid #1c1b19; color: #1c1b19; background: #fff; font: inherit; }
+  /* wide enough that the rules read in longer lines (about 60 characters), still clear of the edges on a phone */
+  .pp-dialog { width: min(520px, calc(100vw - 32px)); padding: 16px; border: 1px solid #1c1b19; color: #1c1b19; background: #fff; font: inherit; }
   .pp-dialog::backdrop { background: rgba(255, 255, 255, .72); }
   .pp-dialog h2 { margin: 0 0 10px; font: inherit; font-weight: 600; }
   .pp-dialog ol { margin: 0 0 8px; padding-left: 18px; }
