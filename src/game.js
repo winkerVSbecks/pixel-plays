@@ -6,18 +6,18 @@ import {
   BOWLER_YAW, BOWLERS, BRICK_X, CATCH_R, CATCH_REACT, CATCH_RUN, CATCH_Z, CHALK_X, CHALK_Y, CONTACT_X, CREASE_X,
   DIR_WORLD, DIRS, DONE_T, EDGE_X, EDGE_Y, FIELD_NAMES, FIELDERS, FIELDS, GATHER_R, GATHER_Z, GRADES, GRAVITY,
   LEG_SIDE, LINES, LIVE_MAX, OFF_SIDE, OVERS, PARAPET, PITCH_Y, PROPS, REACT, RELEASE_X, REPLAY_T, RUN_DIST,
-  RUN_SPEED, SHOTS, STRAIGHT, STUMPS_FACE, STUMPS_X, STUMPS_Z, TARGET, TEAMS, WALL_H_BACK, WALL_H_LEFT, WALL_X,
+  RUN_SPEED, SHOT_TYPES, SHOTS, STRAIGHT, STUMPS_FACE, STUMPS_X, STUMPS_Z, TARGET, TEAMS, WALL_H_BACK, WALL_H_LEFT, WALL_X,
   WALL_Y, WICKETS,
 } from './game/constants.js';
 import { bake } from './game/scene.js';
 import { G, last, POSE_BOWLER, setLast, setTeams } from './game/state.js';
-import { setStatus } from './game/hud.js';
+import { aerial, setAerial, setStatus } from './game/hud.js';
 import { reseed, rng } from './game/rng.js';
 import { ballAt, bowl, swingAt } from './game/delivery.js';
 import { clearWalk, fieldFor, hidesView, newMatch, renderHud, replay, resultText, setField } from './game/match.js';
 import { update } from './game/update.js';
 import { dirFromScreen, draw, roseCenter } from './game/draw.js';
-import { aimDir, heldArrows, heldDirKeys, keyDir, setHookAim } from './game/input.js';
+import { aimDir, heldArrows, heldDirKeys, keyDir, setHookAim, shotFor } from './game/input.js';
 import { audio, ensureAudio, muted, sfx } from './game/sound.js';
 import { chooseTeam, openPicker } from './game/picker.js';
 
@@ -73,7 +73,7 @@ const LANE = {
   CREASE_X, STUMPS_X, STUMPS_Z, BOWL_LINE_X, BRICK_X, BACKSTOP, BATTER, BOWLER, FIELDERS,
 };
 const FIELDING = { FIELDS, FIELD_NAMES, REACT, RUN_SPEED, CATCH_REACT, CATCH_RUN, GATHER_R, GATHER_Z, CATCH_R, CATCH_Z, BOWLER_CATCH_R, BOWLER_CATCH_Z, BOWLER_HOT, RUN_DIST, SHOTS, LIVE_MAX, PROPS };
-const BOWLING = { BALL_R, GRAVITY, RELEASE_X, CONTACT_X, STUMPS_FACE, BOWLED_HALF, BOWLERS, LINES, GRADES, DIRS, DIR_WORLD, LEG_SIDE, OFF_SIDE, STRAIGHT, DONE_T };
+const BOWLING = { BALL_R, GRAVITY, RELEASE_X, CONTACT_X, STUMPS_FACE, BOWLED_HALF, BOWLERS, LINES, GRADES, DIRS, DIR_WORLD, LEG_SIDE, OFF_SIDE, STRAIGHT, DONE_T, SHOT_TYPES };
 const dirIndex = dir => typeof dir === 'number' ? dir : DIRS.indexOf(dir);
 // test controls. freeze() stops the frame loop advancing time so only step()/advance() move the game
 window.__cricket = {
@@ -90,14 +90,17 @@ window.__cricket = {
     setField(name || fieldFor(G.over), true);
     return G.fielders.map(f => ({ name: f.name, x: f.x, y: f.y }));
   },
-  // the latest ball's outcome: { runs, out, how, by? } (null before the first ball ends)
-  outcome() { return G.last && { runs: G.last.runs, out: G.last.out, how: G.last.how, by: G.last.by }; },
+  // the latest ball's outcome: { runs, out, how, by?, shotType } (null before the first ball ends)
+  outcome() { return G.last && { runs: G.last.runs, out: G.last.out, how: G.last.how, by: G.last.by, shotType: G.last.shotType }; },
   bowl,
-  swing(dir) { return swingAt(dirIndex(dir)); },
+  // swing now in dir; shot is a SHOT_TYPES entry ('ground' or 'air'), by default what Space would play now
+  swing(dir, shot) { return swingAt(dirIndex(dir), G.time, shot || shotFor(false)); },
   // aim and hit separately, as the keyboard does: aim(dir) holds a direction (null lets go, which is straight),
-  // hit() is Space at G.time; aimed() is the direction the guide shows now
+  // hit(shot?) is Space at G.time ('air' is Shift+Space); aimed() is the direction the guide shows now
   aim(dir) { setHookAim(dir == null ? null : dirIndex(dir)); return DIRS[aimDir()]; },
-  hit() { return swingAt(keyDir()); },
+  hit(shot) { return swingAt(keyDir(), G.time, shot || shotFor(false)); },
+  // the touch aerial toggle: aerial(true) arms it, aerial(false) disarms it; returns whether it is armed
+  aerial(on) { if (on != null) setAerial(on); return aerial; },
   aimed: () => DIRS[aimDir()],
   ballAt(t) { return ballAt(G.del, t); },
   // step in small slices until G.time reaches t exactly (or pred(G) is true), then draw once

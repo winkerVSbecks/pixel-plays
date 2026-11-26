@@ -3,7 +3,7 @@ import { clamp, figure, lerp } from '../engine.js';
 import {
   AIM_X, BACKSTOP, BALL_R, BOUNCE, BOWLER, BOWLER_YAW, BOWLERS, BRICK, CHALK_X, CONTACT_X, CROSS, crossOf,
   DIR_WORLD, GLANCE, GLANCE_LIFT, GLANCE_PACE, GRAVITY, LEG, LEG_SIDE, LINE_ODDS, LINES, OFF_SIDE, PITCH_Y,
-  REACT, RELEASE_X, SHOTS, STUMPS_FACE,
+  REACT, RELEASE_X, SHOT_TYPES, SHOTS, STUMPS_FACE,
 } from './constants.js';
 import { G } from './state.js';
 import { nodes, setStatus, setSwungYet, showHint, swungYet } from './hud.js';
@@ -79,11 +79,13 @@ function gradeOf(dt, win) {
   const a = Math.abs(dt);
   return a <= win[0] ? 0 : a <= win[1] ? 1 : a <= win[2] ? 2 : 3;
 }
-/* one swing per ball, in direction dir (0-7, see DIRS), pressed at time t. The press is graded against the ball's
+/* one swing per ball, in direction dir (0-7, see DIRS), pressed at time t, playing shotType (a SHOT_TYPES entry:
+   'ground' or 'air'; see SHOTS). The press is graded against the ball's
    arrival at the bat; the timing alone decides whether the bat meets the ball. Hitting against the line costs one
    grade, and so does a ball that moved off the pitch unless the timing was perfect, but neither (nor both) can
    take a connecting swing past mistimed. Returns the swing, or null when there is nothing to swing at. */
-export function swingAt(dir, t = G.time) {
+export function swingAt(dir, t = G.time, shotType = 'ground') {
+  if (!SHOT_TYPES.includes(shotType)) throw new Error('no shot type ' + shotType);
   const d = G.del;
   if (G.phase === 'pick' || d.stage !== 'flight' || d.swing || t >= d.tStumps) return null;
   const B = BOWLERS[d.type], lineY = ballAt(d, d.tContact).y, line = lineOf(lineY);
@@ -94,12 +96,12 @@ export function swingAt(dir, t = G.time) {
   if (grade < 3 && (against || moved && grade > 0)) grade = Math.min(grade + 1, 2);
   const hitAt = Math.max(t, d.tContact);
   if (hitAt >= d.tStumps) grade = 3;
-  d.swing = { dir, t, dt, grade, timed, side: grade === 0 ? null : dt < 0 ? 'early' : 'late', against, moved, line };
+  d.swing = { dir, shotType, t, dt, grade, timed, side: grade === 0 ? null : dt < 0 ? 'early' : 'late', against, moved, line };
   if (grade < 3) d.hitAt = hitAt;
   // the batter's swing (drawing only): it meets the ball where it really is at hitAt, or swings through its line
   G.batter.swing = null;
   const meet = grade < 3 ? hitAt : d.tContact, cp = ballAt(d, meet), from = batterAt(t);
-  G.batter.swing = { t0: t, dir, lineY, grade, from, tc: Math.max(grade < 3 ? hitAt : t + BAT_SWING, t + .035), C: { x: cp.x, y: cp.y, z: cp.z } };
+  G.batter.swing = { t0: t, dir, shotType, lineY, grade, from, tc: Math.max(grade < 3 ? hitAt : t + BAT_SWING, t + .035), C: { x: cp.x, y: cp.y, z: cp.z } };
   planSwing(G.batter.swing, d);
   if (!swungYet) { setSwungYet(); setStatus(G.you.name + ' need ' + (G.match ? G.match.target - G.match.runs : '') + ' to win'); }
   return d.swing;

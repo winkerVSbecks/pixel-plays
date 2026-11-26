@@ -75,6 +75,7 @@ export const CUE_T = .6, CUE_NOW = .05, CUE_GAP = [.12, 1.5], CUE_TICK = .45;
    driven down so it skids along the ground, mistimed is weak and loops up. The perfect slog is a gamble: it climbs
    steeply enough that one aimed at a house front often carries clean over it (out), and it is sprayed wide enough
    that a narrow gap may still find a fielder; into a wide gap, or over the chalk, it is still usually six */
+export const SHOT_TYPES = ['ground', 'air'], DEFAULT_SHOT = 'ground';
 export const SHOTS = [
   { speed: [14, 17.5], lift: [14, 52], scatter: 9 },
   { speed: [11.5, 14], lift: [-10, 1], scatter: 5 },

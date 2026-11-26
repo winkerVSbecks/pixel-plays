@@ -1,10 +1,11 @@
-// Input: aim with keys or the pointer, swing with Space, Enter, a click or a tap.
+// Input: aim with keys or the pointer; swing along the ground with Space, Enter, a click or a tap, and in the air
+// with Shift held (or the aerial toggle armed on touch).
 // the page's canvas is the current target before the listeners below are added to it
 import './screen.js';
 import { canvas, clamp, H, W } from '../engine.js';
 import { STRAIGHT } from './constants.js';
 import { G, last } from './state.js';
-import { setTouchInput, showHint, touchInput } from './hud.js';
+import { aerial, setTouchInput, showHint, touchInput } from './hud.js';
 import { swingAt } from './delivery.js';
 import { replay } from './match.js';
 import { dirFromScreen, roseCenter } from './draw.js';
@@ -14,12 +15,16 @@ import { dirFromScreen, roseCenter } from './draw.js';
    numpad or Q W E / A D / Z X C key, and press Space or Enter to swing that way; with no direction key held the
    swing goes straight. Mouse: the pointer's direction from the batter, snapped to the nearest of the 8, and a click
    swings that way. Touch has no hover, so a tap aims and swings at once. A press is graded at the moment it was
-   made (pressTime). Nothing reaches the game while the team picker (or any other dialog) is open. */
+   made (pressTime). Nothing reaches the game while the team picker (or any other dialog) is open.
+   The shot type: a hit key or a click plays along the ground; with Shift held it is lofted. Touch has no Shift, so
+   the aerial toggle (hud) arms a lofted shot for the next tap. Shift on its own does nothing. */
 const ARROWS = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
 const KEY_DIRS = {
   Numpad8: 0, Numpad9: 1, Numpad6: 2, Numpad3: 3, Numpad2: 4, Numpad1: 5, Numpad4: 6, Numpad7: 7,
   KeyW: 0, KeyE: 1, KeyD: 2, KeyC: 3, KeyX: 4, KeyZ: 5, KeyA: 6, KeyQ: 7,
 };
+// the shot a press plays: lofted with Shift held or the aerial toggle armed, else along the ground
+export const shotFor = shift => shift || aerial ? 'air' : 'ground';
 const isHitKey = e => e.code === 'Space' || e.key === ' ' || e.key === 'Enter';
 export const heldArrows = new Set(), heldDirKeys = [];   // the direction keys held now; the last pressed letter key wins
 /* what the highlight shows and which way each input swings. Every key press, pointer move and tap takes a number
@@ -88,7 +93,7 @@ canvas.addEventListener('pointerdown', e => {
   if (dir == null) return;
   if (hovers(e)) { pointerOver = true; pointerDir = dir; moveSeq = ++inputSeq; }
   else tapAim = { dir, del: G.del, seq: ++inputSeq };
-  swingAt(dir, pressTime(e));
+  swingAt(dir, pressTime(e), shotFor(e.shiftKey));
 });
 /* keys work wherever focus is on the page (after the mute button, say), except in a text field or on a link.
    Space always belongs to the game outside a dialog: it never scrolls and never presses a focused button (the
@@ -108,7 +113,7 @@ addEventListener('keydown', e => {
   // after the result any key of the game (or Enter / Space) plays again
   if (G.phase === 'over') { replay(); return; }
   // a hit key swings in the keyboard's direction, timed as it goes down; a press before the ball is bowled does nothing
-  if (hit) swingAt(keyDir(), pressTime(e));
+  if (hit) swingAt(keyDir(), pressTime(e), shotFor(e.shiftKey));
 });
 addEventListener('keyup', e => {
   heldArrows.delete(e.key);

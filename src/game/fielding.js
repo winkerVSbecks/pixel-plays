@@ -6,7 +6,7 @@ import {
   RUN_SPEED,
 } from './constants.js';
 import { facing, G } from './state.js';
-import { setStatus } from './hud.js';
+import { setAerial, setStatus } from './hud.js';
 import { rng } from './rng.js';
 import { ballAt } from './delivery.js';
 import { stepBall } from './ball.js';
@@ -112,10 +112,11 @@ const OUTCOME_TEXT = o => o.dropped ? 'dropped! ' + (o.runs ? o.runs + (o.runs >
 function finish(d, result, outcome) {
   d.stage = 'done';
   d.timer = DONE_T;
+  setAerial(false);
   const sw = d.swing;
   G.last = {
     n: d.n, type: d.type, line: d.line, move: d.move, amount: d.amount, pitch: { ...d.P }, end: d.end,
-    dir: sw ? DIRS[sw.dir] : null, grade: sw ? GRADES[sw.grade] : null, side: sw ? sw.side : null,
+    dir: sw ? DIRS[sw.dir] : null, shotType: sw ? sw.shotType : null, grade: sw ? GRADES[sw.grade] : null, side: sw ? sw.side : null,
     dt: sw ? sw.dt : null, against: sw ? sw.against : false, result,
   };
   const b = G.ball;

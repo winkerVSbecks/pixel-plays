@@ -47,6 +47,10 @@
   /* the kit as a swatch: a solid chip of the team's shirt colour */
   .swatch { width: 30px; height: 22px; border: 1px solid var(--ink); background: var(--body); }
   .buttons { display: flex; gap: 20px; flex-shrink: 0; white-space: nowrap; }
+  /* the touch aerial toggle: armed, it reads as pressed (ink on the paper colour flipped) until the ball is over */
+  #loft { touch-action: manipulation; -webkit-tap-highlight-color: transparent; border: 1px solid currentColor; padding: 6px 10px; margin: -6px 0; }
+  #loft[aria-pressed="true"] { color: var(--paper); background: var(--ink); border-color: var(--ink); }
+  #loft[hidden] { display: none; }
 </style>
 </head>
 <body>
@@ -59,7 +63,7 @@
 </div>
 <div class="hud" id="bottom">
   <div id="status" role="status" aria-live="polite"></div>
-  <div class="buttons"><button id="team" type="button">change team</button><button id="mute" type="button" aria-pressed="false">sound on</button></div>
+  <div class="buttons"><button id="loft" type="button" aria-pressed="false" hidden>aerial</button><button id="team" type="button">change team</button><button id="mute" type="button" aria-pressed="false">sound on</button></div>
 </div>
 <dialog id="picker" aria-labelledby="picker-title" aria-describedby="picker-new picker-hint">
   <h2 id="picker-title">Pick your team</h2>
