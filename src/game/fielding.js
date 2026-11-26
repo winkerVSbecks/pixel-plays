@@ -1,6 +1,6 @@
 // Fielding: who chases a hit ball, catches and gathers, and how a live ball ends.
 import { clamp } from '../engine.js';
-import { burst, DUST, scoreBall, sfx, startCelebration } from '../game.js';
+import { sfx } from '../game.js';
 import {
   BACKSTOP, BOWLED_HALF, BOWLER_CATCH_R, BOWLER_CATCH_Z, BOWLER_HOT, CATCH_HOT, CATCH_R, CATCH_REACT, CATCH_RUN,
   CATCH_Z, DIRS, DONE_T, DROP, GATHER_R, GATHER_Z, GRADES, LIVE_MAX, PHYS_DT, PITCH_Y, REACT, RUN_DIST,
@@ -11,6 +11,9 @@ import { setStatus } from './hud.js';
 import { rng } from './rng.js';
 import { ballAt } from './delivery.js';
 import { stepBall } from './ball.js';
+import { scoreBall } from './match.js';
+import { startCelebration } from './celebration.js';
+import { burst, DUST } from './fx.js';
 
 /* ---------- fielding ----------
    At the hit the ball's whole path is replayed ahead of time (same fixed steps, so it is exact) to find the first
