@@ -40,6 +40,9 @@ export const G = {
   match: null,
 };
 G.batter.swing = null;
+// when the frame loop last ran (a performance.now() time); input times a press from it
+export let last = 0;
+export const setLast = t => { last = t; };
 // dress the batter in your kit and the fielding side in the rival's (drawn from the other eight, less any whose kit
 // is too close to yours, if not given)
 export function setTeams(youId, rivalId) {

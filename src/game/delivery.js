@@ -1,6 +1,5 @@
 // One delivery: bowl() plans it, ballAt() reads its flight by time, and a swing is graded and struck.
 import { clamp, figure, lerp } from '../engine.js';
-import { BAT_SWING, batterAt, planSwing, sfx } from '../game.js';
 import {
   AIM_X, BACKSTOP, BALL_R, BOUNCE, BOWLER, BOWLER_YAW, BOWLERS, BRICK, CHALK_X, CONTACT_X, CROSS, crossOf,
   DIR_WORLD, GLANCE, GLANCE_LIFT, GLANCE_PACE, GRAVITY, LEG, LEG_SIDE, LINE_ODDS, LINES, OFF_SIDE, PITCH_Y,
@@ -13,6 +12,8 @@ import { releasePose } from './bowler.js';
 import { planChase } from './fielding.js';
 import { fieldFor, setField } from './match.js';
 import { burst, DUST, SPARK } from './fx.js';
+import { BAT_SWING, batterAt, planSwing } from './batter.js';
+import { sfx } from './sound.js';
 
 // start a delivery now. opts (and G.force) may fix: type 'fast'|'spin', line 'stumps'|'off'|'leg', move 'in'|'away'|'none',
 // amount (sideways movement at the stumps), offset (aim at the stumps relative to PITCH_Y), length (pitching x)

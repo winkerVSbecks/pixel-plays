@@ -1,5 +1,4 @@
 // update(dt): one step of the simulation. Time is passed in, so a caller can step, freeze or replay it.
-import { BAT_BACK, hop, sfx } from '../game.js';
 import { BOWLER, BOWLER_YAW, BOWLERS, DONE_T, HOLD_T, PHYS_DT } from './constants.js';
 import { G, POSE_BOWLER, POSE_CATCH, POSE_CHEER, POSE_FIELDER, POSE_HOLD } from './state.js';
 import { nextType, walkPose } from './rng.js';
@@ -9,6 +8,9 @@ import { stepBall } from './ball.js';
 import { passStumps, RUN_POSE, stepLive, team } from './fielding.js';
 import { endMatch, fieldSet, nextField, setField, stepLoose, walkFielders } from './match.js';
 import { stepFx } from './fx.js';
+import { BAT_BACK } from './batter.js';
+import { hop } from './draw.js';
+import { sfx } from './sound.js';
 
 /* ---------- update ---------- */
 export function update(dt) {

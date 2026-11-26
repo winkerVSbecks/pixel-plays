@@ -1,6 +1,5 @@
 // The end-of-match celebration: runs, jumps, the huddle and the batter's reaction, all drawn from the clock.
 import { clamp, ease, lerp, STILL } from '../engine.js';
-import { BAT, batterPlay, flat, mixBat, myV, SIDE_ON } from '../game.js';
 import { BATTER, FIELD_BOUNDS, FIG_SCALE } from './constants.js';
 import { facing, G } from './state.js';
 import {
@@ -8,6 +7,7 @@ import {
 } from './figures.js';
 import { bowlerAt, footAt, reachZ, strideLen } from './bowler.js';
 import { clearAround, hidesView, routeTo } from './match.js';
+import { BAT, batterPlay, flat, mixBat, myV, SIDE_ON } from './batter.js';
 
 /* ---------- the celebration ----------
    When the match is decided, the side that won celebrates and the other side takes it in, for two or three

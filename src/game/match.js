@@ -1,6 +1,5 @@
 // The match: the chase, scoring, the HUD, field placings and fielders walking back clear of the view.
 import { clamp, lerp, project } from '../engine.js';
-import { openPicker } from '../game.js';
 import {
   BACKSTOP, BALL_R, BATTER, BOWLER, BOWLER_YAW, BOWLERS, CONTACT_X, FIELD_BOUNDS, FIELD_NAMES, FIELDS, GRAVITY,
   JOG, LEG, OVERS, PITCH_Y, REPLAY_T, STUMPS_X, STUMPS_Z, TARGET, WALL_X, WALL_Y, WICKETS,
@@ -8,6 +7,7 @@ import {
 import { facing, G, POSE_BOWLER, POSE_FIELDER } from './state.js';
 import { nodes, setStatus, showHint } from './hud.js';
 import { nextType, range, rng, walkPose } from './rng.js';
+import { openPicker } from './picker.js';
 
 /* ---------- the match ----------
    Every ball counts (there are no extras). The chase is won as soon as the runs reach the target; it is lost when
