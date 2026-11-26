@@ -47,14 +47,16 @@
   /* the kit as a swatch: a solid chip of the team's shirt colour */
   .swatch { width: 30px; height: 22px; border: 1px solid var(--ink); background: var(--body); }
   .buttons { display: flex; gap: 20px; flex-shrink: 0; white-space: nowrap; }
-  /* the touch aerial toggle: armed, it reads as pressed (ink on the paper colour flipped) until the ball is over */
-  #loft { touch-action: manipulation; -webkit-tap-highlight-color: transparent; border: 1px solid currentColor; padding: 6px 10px; margin: -6px 0; }
+  /* the touch aerial toggle, under the right thumb above the bottom bar and the credits (which step up to 72px on a
+     narrow screen): armed, it reads as pressed (ink and paper swapped) until the ball is over */
+  #loft { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(108px, calc(env(safe-area-inset-bottom) + 94px)); z-index: 5;
+    margin: 0; padding: 8px 14px; border: 1px solid currentColor; background: var(--paper); touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   #loft[aria-pressed="true"] { color: var(--paper); background: var(--ink); border-color: var(--ink); }
   #loft[hidden] { display: none; }
 </style>
 </head>
 <body>
-<div id="stage"><canvas id="c" tabindex="0" aria-label="Gully cricket in a lane with houses along both sides. You bat at the near end; the bowler runs in from the far end. Hold the arrow keys to aim and press Space to swing, or point and click; on a touch screen, tap around the batter."></canvas></div>
+<div id="stage"><canvas id="c" tabindex="0" aria-label="Gully cricket in a lane with houses along both sides. You bat at the near end; the bowler runs in from the far end. Hold the arrow keys to aim, then press Space to hit along the ground or Shift+Space to hit in the air; or point and click, with Shift to hit in the air. On a touch screen, tap around the batter, and press aerial first to hit in the air."></canvas></div>
 <div id="scores">
   <div class="team" id="you"><b id="runs" aria-label="runs for wickets"></b><span id="overs"></span></div>
   <div class="team" id="rival"><span class="name" id="match"></span><span id="target"></span></div>
@@ -63,8 +65,9 @@
 </div>
 <div class="hud" id="bottom">
   <div id="status" role="status" aria-live="polite"></div>
-  <div class="buttons"><button id="loft" type="button" aria-pressed="false" hidden>aerial</button><button id="team" type="button">change team</button><button id="mute" type="button" aria-pressed="false">sound on</button></div>
+  <div class="buttons"><button id="team" type="button">change team</button><button id="mute" type="button" aria-pressed="false">sound on</button></div>
 </div>
+<button id="loft" type="button" aria-pressed="false" hidden>aerial</button>
 <dialog id="picker" aria-labelledby="picker-title" aria-describedby="picker-new picker-hint">
   <h2 id="picker-title">Pick your team</h2>
   <p id="picker-new" hidden>Picking a team starts a new match.</p>

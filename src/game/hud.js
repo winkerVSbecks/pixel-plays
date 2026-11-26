@@ -19,9 +19,9 @@ export function setStatus(text) {
   nodes.status.textContent = text;
 }
 /* how to play, for a newcomer: until the first swing of the visit, the status line says how to aim and hit, in the
-   words of the input in use (a touch screen has no hover, so a tap does both). It goes up as each ball is bowled, so
+   words of the input in use (a touch screen has no hover, so a tap does both), with how to hit in the air. It goes up as each ball is bowled, so
    the outcome of a ball let go by still shows, and the first swing hands the line back to the match */
-const SWING_HINT = { keys: 'arrows or mouse aim · space or click hits', touch: 'tap where you want to hit' };
+const SWING_HINT = { keys: 'arrows aim · space ground · shift+space air', touch: 'tap to hit · aerial: in the air' };
 export let swungYet = false, touchInput = matchMedia('(hover: none)').matches;
 export const setSwungYet = () => { swungYet = true; };
 export const setTouchInput = on => { touchInput = on; nodes.loft.hidden = !on; };
