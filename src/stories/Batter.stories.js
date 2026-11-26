@@ -7,7 +7,7 @@ import { stage, timeArgs, timeArgTypes } from './harness/view.js';
 // the ball every shot story faces unless changed: fast, on the stumps, holding its line, a good length
 const BALL = { type: 'fast', line: 'stumps', move: 'none', length: 3.6 };
 const shotScenario = a => ({
-  seed: a.seed, type: a.type, line: a.line, move: a.move, length: a.length,
+  seed: a.seed, difficulty: a.difficulty, type: a.type, line: a.line, move: a.move, length: a.length,
   swing: { dir: a.dir, shot: a.shot, timing: a.timing, side: a.side },
 });
 const ballArgTypes = {
@@ -47,7 +47,7 @@ export const Stance = {
 export const Leave = {
   args: { ...timeArgs, ...BALL, line: 'off', focus: 'batter', zoom: 2.5, time: at({}, 'contact') },
   argTypes: { ...timeArgTypes(6), ...ballArgTypes },
-  render: a => stage({ seed: a.seed, type: a.type, line: a.line, move: a.move, length: a.length, swing: null }, a, { label: 'The batter leaving a ball outside off' }),
+  render: a => stage({ seed: a.seed, difficulty: a.difficulty, type: a.type, line: a.line, move: a.move, length: a.length, swing: null }, a, { label: 'The batter leaving a ball outside off' }),
 };
 /* any shot: pick the direction, the shot type and the timing */
 export const Shot = shotStory({ time: at({}, 'contact', .2) });

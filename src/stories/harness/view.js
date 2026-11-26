@@ -10,21 +10,22 @@ export const timeArgTypes = (max = 8) => ({
   playing: { control: 'boolean', description: 'Play from the scrub position, looping at the end', table: { category: 'Time' } },
   rate: { control: { type: 'range', min: .1, max: 2, step: .05 }, description: 'Playback rate while playing', table: { category: 'Time' } },
   seed: { control: { type: 'number', min: 0, step: 1 }, description: 'Seed for the random sequence (mulberry32)', table: { category: 'Time' } },
+  difficulty: { control: { type: 'range', min: 1, max: 5, step: 1 }, description: 'Stars (difficulty.js): 4 hides the swing cue, 5 also the movement wedge', table: { category: 'Game' } },
   focus: { control: 'select', options: Object.keys(FOCUS), description: 'What the view is centred on', table: { category: 'View' } },
   zoom: { control: { type: 'range', min: 1, max: 4, step: .5 }, description: 'Crop in around the focus', table: { category: 'View' } },
   scale: { control: { type: 'range', min: 1, max: 4, step: 1 }, description: 'Whole-pixel upscale', table: { category: 'View' } },
 });
-export const timeArgs = { time: 0, playing: false, rate: 1, seed: 1, focus: 'lane', zoom: 1, scale: 2 };
+export const timeArgs = { time: 0, playing: false, rate: 1, seed: 1, difficulty: 1, focus: 'lane', zoom: 1, scale: 2 };
 
 const fmt = v => (v == null || !isFinite(v) ? '–' : v.toFixed(2) + 's');
 /* what to say under the canvas: the clock, the stage, the delivery's key moments and the result so far */
 function describe(sc, info, t, end) {
-  const d = info.d, parts = [`t ${t.toFixed(2)}s of ${end.toFixed(1)}s`, 'seed ' + sc.seed];
+  const d = info.d, parts = [`t ${t.toFixed(2)}s of ${end.toFixed(1)}s`, 'seed ' + sc.seed, (sc.difficulty || 1) + '★'];
   if (d) {
     parts.push(G.del === d ? d.stage : 'next ball');
     parts.push(`${d.type} · ${d.line} · ${d.move}${d.move !== 'none' ? ' ' + d.amount.toFixed(2) : ''}`);
     parts.push(`release ${fmt(d.tRelease)} · pitch ${fmt(d.tPitch)} · bat ${fmt(d.tContact)} · bricks ${fmt(d.tStumps)}`);
-    if (info.tSwing != null) parts.push('swing ' + fmt(info.tSwing) + (d.swing ? ` (${['perfect', 'good', 'mistimed', 'miss'][d.swing.grade]})` : ''));
+    if (info.tSwing != null) parts.push(`${sc.swing.shot || 'ground'} shot to ${sc.swing.dir} at ` + fmt(info.tSwing) + (d.swing ? ` (${['perfect', 'good', 'mistimed', 'miss'][d.swing.grade]})` : ''));
   } else parts.push(G.del.stage);
   if (G.last) {
     const o = G.last;

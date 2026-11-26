@@ -9,6 +9,7 @@ import { bake } from '../../game/scene.js';
 import { G, POSE_BOWLER, setTeams } from '../../game/state.js';
 import '../../game/hud.js';
 import { reseed } from '../../game/rng.js';
+import { LEVELS, setDifficulty } from '../../game/difficulty.js';
 import { bowl, swingAt } from '../../game/delivery.js';
 import { fieldSet, newMatch, setField } from '../../game/match.js';
 import { update } from '../../game/update.js';
@@ -17,7 +18,7 @@ import '../../game/input.js';
 import '../../game/sound.js';
 import '../../game/picker.js';
 
-export { DIRS, FIELD_NAMES, GRADES, TEAMS };
+export { DIRS, FIELD_NAMES, GRADES, LEVELS, TEAMS };
 export const TIMINGS = ['perfect', 'good', 'mistimed', 'miss'];
 const STEP = 1 / 120;
 
@@ -43,8 +44,9 @@ export function pressOffset(type, timing, side = 'late') {
 }
 
 /* a fresh match in a known state: seeded, the kits and the field fixed, nobody moving, no delivery yet.
-   sc = { seed, you, rival, field, type } */
+   sc = { seed, difficulty (1 to 5 stars), you, rival, field, type } */
 function reset(sc) {
+  setDifficulty(sc.difficulty || 1);
   reseed(sc.seed >>> 0);
   G.time = 0; G.auto = false; G.frozen = true; G.force = { ...sc.force };
   G.history = []; G.last = null; G.timeouts = 0;
@@ -116,20 +118,21 @@ export function moment(sc, name, plus = 0) {
   return +(at + plus).toFixed(2);
 }
 
-/* the first seed from sc.seed on whose ball pred(G.last) holds (a catch, a drop, a four...), searched over `tries`
-   seeds and cached; null if none does */
+/* the first ball from sc whose result satisfies pred(G.last): seeds from sc.seed on, and for each seed the swing's
+   own direction and then (if anyDir) the other seven. Returns that scenario (cached), or sc itself if none of
+   `tries` seeds gives one */
 const found = new Map();
-export function findSeed(sc, pred, tries = 400) {
-  const key = JSON.stringify(sc) + pred;
+export function findBall(sc, pred, { tries = 300, anyDir = false } = {}) {
+  const key = JSON.stringify(sc) + anyDir + pred;
   if (!found.has(key)) {
     let hit = null;
-    for (let i = 0; i < tries && hit == null; i++) {
-      const s = { ...sc, seed: sc.seed + i };
-      play(s, 0);
-      advance(12, { tDone: null });
-      if (G.last && pred(G.last, G)) hit = s.seed;
+    const own = sc.swing && sc.swing.dir, dirs = sc.swing && anyDir ? [own, ...DIRS.filter(d => d !== own)] : [own];
+    for (let i = 0; i < tries && !hit; i++) for (const dir of dirs) {
+      const s = { ...sc, seed: sc.seed + i, ...(sc.swing ? { swing: { ...sc.swing, dir } } : {}) };
+      play(s, 12);
+      if (G.last && pred(G.last, G)) { hit = s; break; }
     }
-    found.set(key, hit);
+    found.set(key, hit || sc);
   }
   return found.get(key);
 }
