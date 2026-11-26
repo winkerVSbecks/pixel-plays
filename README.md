@@ -1,16 +1,30 @@
-# Pixel Plays: Cricket
+# Gully Cricket
 
 Street cricket in a lane, shown as an isometric pixel diorama. Chase a target in 5 overs with 3 wickets and hit into the gaps between the fielders. It is plain JavaScript modules with their own software rasteriser, bundled by Vite: no runtime dependencies, no sprites or image assets.
 
 **Play: https://pixel-plays-ruby.vercel.app/**
 
-Concept by [abhi](https://x.com/awwbhi2) and Game by [AmirMushich](https://x.com/AmirMushich). Visual reference for the style: shawn.'s [Small plays](https://x.com/zzzzshawn/status/2111546123546661289); no assets or subjects were copied.
+Gully Cricket by [Varun](https://varun.ca), based on the original concept by [abhi](https://x.com/awwbhi2) and games by [AmirMushich](https://x.com/AmirMushich): [Pixel Plays on GitHub](https://github.com/amirmushichge/pixel-plays). Visual reference for the style: shawn.'s [Small plays](https://x.com/zzzzshawn/status/2111546123546661289); no assets or subjects were copied.
 
 ## Controls
-- Aim with the arrow keys (two for a diagonal), Q W E A D Z X C, or the mouse. The dotted line from the batter shows where.
-- Press Space or click to swing. With no key held you hit straight past the bowler.
-- On a touch screen, tap around the batter to aim and swing at once.
-- **Rules** (top right) explains scoring and how you get out. **change team** picks a new side; **sound on/off** mutes the music and effects.
+- Aim with the arrow keys (two for a diagonal), Q W E A D Z X C, or the mouse. The dotted line from the batter shows where. With no direction held you hit straight past the bowler.
+- Space, Enter or a click plays a grounded shot, along the ground. Hold Shift for an aerial shot, in the air: Shift+Space, Shift+Enter or Shift+click. Shift on its own does nothing.
+- A grounded shot is safer: a clean one can't be caught on the full, and it scores at most 4. An aerial shot can go for 6 but is caught far more often.
+- On a touch screen, tap around the batter to aim and swing at once; a tap plays grounded. The **aerial** button above the bottom bar arms the next ball for an aerial shot and resets after it. It shows only while you play by touch.
+- **Rules** (top right) explains scoring and how you get out, and the info icon beside it opens About. **change team** goes back to the welcome screen; **sound on/off** mutes the music and effects.
+
+## Welcome screen and difficulty
+Before each match the welcome screen asks for your team (nine kits; the fielding side is drawn from the rest, in a kit unlike yours) and a difficulty of 1 to 5 stars. Play starts the match. Both choices are remembered in the browser, and the HUD shows the stars in play. Each level adds to the one before it:
+
+| Stars | Name | What changes |
+| --- | --- | --- |
+| 1 | easy | The game as tuned: a target of 50 to 85, with the timing cue and the movement wedge shown. |
+| 2 | steady | A higher target, 60 to 95. |
+| 3 | tough | Fielders react quicker and run faster to catches, the bowler takes wider return catches, and hitting across a ball that moved costs more and edges more often. |
+| 4 | hard | As 3, with no timing cue: judge the swing yourself. |
+| 5 | expert | As 4, with no movement wedge on the landing ring, and the ball moves 25% more off the pitch. |
+
+All the values are in `src/game/difficulty.js`.
 
 ## Run
 Requires [Node.js](https://nodejs.org/) 20.19+ or 22.12+.
@@ -30,9 +44,10 @@ Vercel runs `npm run build` and serves `dist/` (see `vercel.json`). Old `/cricke
 - `index.html` is the page: the canvas, the HUD and the team picker's markup and styles. It loads `src/main.js`.
 - `src/main.js` mounts the page chrome (`src/page.js`, using `src/shell.js`: the Rules and About popups, the credits and the music), then starts the game.
 - `src/engine.js` is the renderer: camera, depth buffer, colour ramps, shadows, edges, figures, trees and wind. `createTarget(canvas)` gives a canvas its own buffers and `useTarget(target)` draws to it, so several canvases can each show a scene.
-- `src/game.js` boots the game: the pause rule, the frame loop and the test controls on `window.__cricket` (freeze, seed, step, advance and more).
-- `src/game/` holds the game's parts as modules: `constants` (layout, bowling, teams, fields), `scene` (the baked lane), `state` (`G`), `rng` (the seeded mulberry32 sequence), `figures`, `bowler`, `delivery`, `ball`, `fielding`, `match`, `celebration`, `batter`, `fx`, `update` (one step of `dt` seconds), `draw`, `hud`, `input`, `sound` and `picker`.
-- `src/stories/` holds the Storybook stories; `Scene/Ground` draws the empty lane.
+- `src/game.js` boots the game: the pause rule, the frame loop and the test controls on `window.__cricket` (freeze, seed, step, advance, swing, setDifficulty, simulate and more).
+- `src/game/` holds the game's parts as modules: `constants` (layout, bowling, teams, fields), `scene` (the baked lane), `state` (`G`), `rng` (the seeded mulberry32 sequence), `screen` (the page canvas as the render target), `figures`, `bowler`, `delivery`, `ball`, `fielding`, `match`, `celebration`, `batter`, `fx`, `update` (one step of `dt` seconds), `draw`, `hud`, `input` (aim and the grounded and aerial shots), `sound`, `picker` (the welcome screen), `difficulty` (the five levels) and `simulate` (headless seeded balls that tally what each shot type does).
+- `src/stories/` holds the Storybook stories: Scene/Ground (the empty lane), Batter, Bowler, Fielding, Ball and UI (the HUD and the welcome screen). Each story has time, play, rate, seed and difficulty controls.
+- `src/stories/harness/` drives them: `dom` loads the page markup the game modules expect, `scenario` replays a seeded delivery through the real game modules to any time, and `view` is the story frame and its shared controls.
 - `public/cricket.mp3` is the background track, copied into the build as it is.
 
 ## Visual rules
