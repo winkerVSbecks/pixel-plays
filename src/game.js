@@ -3,643 +3,31 @@ import './game/screen.js';
 import {
   applyShadows, bakedPix, bakedZ, box, canvas, capsule, capture, castShadow, clamp, ctx, drawDots, drawLeaves,
   drawTufts, dynamicAdd, ease, figure, fit, flushShadows, H, hash, image, INK, lerp, pendingShadows, pix,
-  project, rampOf, rgb, setCapture, shadeEdges, SHOE, SIGNAL, sphere, STILL, W, WIND_FPS, zb,
+  project, rampOf, rgb, setCapture, shadeEdges, SIGNAL, sphere, STILL, W, WIND_FPS, zb,
 } from './engine.js';
 import {
-  AIM_X, ARM_RELEASE, BACKSTOP, BALL_COLOR, BALL_R, BATTER, BLADE, BOUNCE, BOUNCE_MIN, BOWL_LINE_X, BOWLED_HALF,
-  BOWLER, BOWLER_CATCH_R, BOWLER_CATCH_Z, BOWLER_HOT, BOWLER_YAW, BOWLERS, BRICK, BRICK_X, BRICKWORK, CATCH_HOT,
-  CATCH_R, CATCH_REACT, CATCH_RUN, CATCH_Z, CHALK_X, CHALK_Y, CONTACT_X, CREASE_X, CROSS, crossOf, CUE_GAP,
-  CUE_NOW, CUE_T, CUE_TICK, DIR_WORLD, DIRS, DONE_T, DROP, EDGE_X, EDGE_Y, FIELD_BOUNDS, FIELD_NAMES, FIELDERS,
-  FIELDS, FIG_SCALE, GATHER_R, GATHER_Z, GLANCE, GLANCE_LIFT, GLANCE_PACE, GRADES, GRAVITY, HAND, HOLD_T, JOG,
-  LEG, LEG_SIDE, LINE_ODDS, LINES, LIVE_MAX, OFF_SIDE, OVERS, PARAPET, PHYS_DT, PITCH_Y, PROP_BOUNCE, PROPS,
-  REACT, RELEASE_X, REPLAY_T, ROLL, ROSE_IN, ROSE_OUT, RUN_DIST, RUN_SPEED, SHOTS, SKID, STRAIGHT, STUMP_BRICKS,
-  STUMPS_FACE, STUMPS_X, STUMPS_Z, TARGET, TEAMS, VERGE_ROLL, WALL_BOUNCE, WALL_H_BACK, WALL_H_LEFT, WALL_X,
-  WALL_Y, wallTop, WICKETS,
+  BACKSTOP, BALL_COLOR, BALL_R, BATTER, BLADE, BOWL_LINE_X, BOWLED_HALF, BOWLER, BOWLER_CATCH_R, BOWLER_CATCH_Z,
+  BOWLER_HOT, BOWLER_YAW, BOWLERS, BRICK, BRICK_X, BRICKWORK, CATCH_R, CATCH_REACT, CATCH_RUN, CATCH_Z, CHALK_X,
+  CHALK_Y, CONTACT_X, CREASE_X, CUE_GAP, CUE_NOW, CUE_T, CUE_TICK, DIR_WORLD, DIRS, DONE_T, EDGE_X, EDGE_Y,
+  FIELD_BOUNDS, FIELD_NAMES, FIELDERS, FIELDS, FIG_SCALE, GATHER_R, GATHER_Z, GRADES, GRAVITY, HAND, HOLD_T, JOG,
+  LEG, LEG_SIDE, LINES, LIVE_MAX, OFF_SIDE, OVERS, PARAPET, PHYS_DT, PITCH_Y, PROPS, REACT, RELEASE_X, REPLAY_T,
+  ROSE_IN, ROSE_OUT, RUN_DIST, RUN_SPEED, SHOTS, STRAIGHT, STUMP_BRICKS, STUMPS_FACE, STUMPS_X, STUMPS_Z, TARGET,
+  TEAMS, WALL_H_BACK, WALL_H_LEFT, WALL_X, WALL_Y, WICKETS,
 } from './game/constants.js';
 import { bake } from './game/scene.js';
 import {
   CHEER_T, facing, G, KIDS, POSE_BOWLER, POSE_CATCH, POSE_CHEER, POSE_FIELDER, POSE_HOLD, setTeams,
 } from './game/state.js';
-import { nodes, setStatus, setSwungYet, setTouchInput, showHint, swungYet, touchInput } from './game/hud.js';
-import { lineOf, nextType, pickOne, range, reseed, rng, walkPose } from './game/rng.js';
-
-/* ---------- jointed figures ----------
-   The engine's figure() has one symmetric stance, arms that only swing fore and aft, and knees and elbows it
-   places itself. The bowler and the batter need more than that, so they are drawn here from a body spec: the
-   pelvis, how the hips and chest are turned and tilted, and where the feet and hands are in the world. Knees and
-   elbows are found by two-bone IK. Bone lengths, radii and colours are figure()'s, so they match the fielders.
-   Spec fields: k (scale), pelvis [x, y, z], hipYaw, chestYaw, lean (forward), roll (towards the right side),
-   footL/footR (ankles, z .12 on the ground), toeL/toeR (angles), handL/handR, poleL/poleR (which way the elbows
-   point). "Right" is the figure's own right as seen on screen, the same side as figure()'s armR. */
-const vAdd = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-const vSub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const vMul = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
-const vDot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const vCross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const vLen = a => Math.hypot(a[0], a[1], a[2]);
-const vNorm = a => vMul(a, 1 / (vLen(a) || 1));
-const vMix = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)];
-const angMix = (a, b, t) => a + (Math.atan2(Math.sin(b - a), Math.cos(b - a))) * t;
-const LEG_LEN = 1.16, THIGH = .58, SHIN = .58, UPPER_ARM = .46, FOREARM = .5, ARM_LEN = .96;
-// a two-bone limb from a towards t, bending towards pole; out of reach it straightens and points at t
-function ik(a, t, l1, l2, pole) {
-  let d = vSub(t, a), n = vLen(d);
-  const max = (l1 + l2) * .9995, min = Math.abs(l1 - l2) + 1e-4;
-  if (n > max) { d = vMul(d, max / n); n = max; }
-  else if (n < min) { d = vMul(d, min / (n || 1)); n = min; }
-  const u = vMul(d, 1 / n), x = (l1 * l1 - l2 * l2 + n * n) / (2 * n), h = Math.sqrt(Math.max(0, l1 * l1 - x * x));
-  let p = vSub(pole, vMul(u, vDot(pole, u)));
-  if (vLen(p) < 1e-6) p = Math.abs(u[2]) < .9 ? [0, 0, 1] : [1, 0, 0];
-  p = vNorm(p);
-  return { mid: vAdd(vAdd(a, vMul(u, x)), vMul(p, h)), end: vAdd(a, d) };
-}
-// the chest frame of a spec: spine direction, the chest's right and forward, the neck, head and both shoulders
-function bodyFrame(b) {
-  const k = b.k, roll = b.roll || 0, cy = b.chestYaw;
-  const cf = [Math.cos(cy), Math.sin(cy), 0], cr = [-Math.sin(cy), Math.cos(cy), 0];
-  const spine = vNorm([cf[0] * Math.sin(b.lean) + cr[0] * Math.sin(roll), cf[1] * Math.sin(b.lean) + cr[1] * Math.sin(roll), Math.cos(b.lean) * Math.cos(roll)]);
-  const right = vNorm(vSub(cr, vMul(spine, vDot(cr, spine)))), fwd = vCross(right, spine);
-  const neck = vAdd(b.pelvis, vMul(spine, 1.03 * k)), base = vSub(neck, vMul(spine, .11 * k));
-  // bow (optional): the head drops forward on the neck (negative tips it back)
-  const head = b.bow ? vAdd(vAdd(neck, vMul(vAdd(vMul(spine, Math.cos(b.bow)), vMul(fwd, Math.sin(b.bow))), .28 * k)), vMul(fwd, .05 * k * Math.cos(b.bow)))
-    : vAdd(vAdd(neck, vMul(spine, .28 * k)), vMul(fwd, .05 * k));
-  return { spine, right, fwd, neck, head, shL: vAdd(base, vMul(right, -.36 * k)), shR: vAdd(base, vMul(right, .36 * k)) };
-}
-function drawBody(b, t, add = dynamicAdd) {
-  const k = b.k, f = bodyFrame(b), hr = [-Math.sin(b.hipYaw), Math.cos(b.hipYaw), 0];
-  const legs = () => t.legs, skin = () => t.skin, shirt = () => t.shirt;
-  for (const side of [-1, 1]) {
-    const hip = vAdd(b.pelvis, vMul(hr, .15 * k * side)), ta = side < 0 ? b.toeL : b.toeR, toe = [Math.cos(ta), Math.sin(ta), 0];
-    const leg = ik(hip, side < 0 ? b.footL : b.footR, THIGH * k, SHIN * k, [toe[0], toe[1], .15]);
-    add(hip, leg.mid, .17 * k, .13 * k, legs);
-    add(leg.mid, leg.end, .13 * k, .1 * k, legs);
-    add(leg.end, vAdd(leg.end, [toe[0] * .16 * k, toe[1] * .16 * k, -.04 * k]), .1 * k, .09 * k, () => SHOE);
-  }
-  add(b.pelvis, f.neck, .3 * k, .32 * k, shirt);
-  add(f.neck, f.head, .11 * k, .12 * k, skin);
-  add(f.head, f.head, .24 * k, .24 * k, skin);
-  // (a bowed head shows its crown: the hair moves round to the top and front)
-  const hair = b.bow ? vAdd(vAdd(f.head, vMul(f.fwd, (-.06 * Math.cos(b.bow) + .08 * Math.sin(b.bow)) * k)), [0, 0, .08 * k * Math.cos(b.bow)])
-    : vAdd(vSub(f.head, vMul(f.fwd, .06 * k)), [0, 0, .08 * k]);
-  add(hair, hair, .205 * k, .205 * k, () => t.hair);
-  const out = { frame: f };
-  for (const side of [-1, 1]) {
-    const sh = side < 0 ? f.shL : f.shR, arm = ik(sh, side < 0 ? b.handL : b.handR, UPPER_ARM * k, FOREARM * k, side < 0 ? b.poleL : b.poleR);
-    add(sh, arm.mid, .12 * k, .1 * k, shirt);
-    add(arm.mid, arm.end, .09 * k, .08 * k, skin);
-    out[side < 0 ? 'handL' : 'handR'] = arm.end;
-  }
-  return out;
-}
-// figure()'s geometry for an ordinary pose, as a spec, so a jointed figure can blend to and from it
-function poseBody(x, y, yaw, pose, k = FIG_SCALE) {
-  const fx = Math.cos(yaw), fy = Math.sin(yaw), sx = -fy, sy = fx, base = pose.z || 0;
-  const P = (a, b, c) => [x + (fx * a + sx * b) * k, y + (fy * a + sy * b) * k, c * k + base];
-  const crouch = pose.crouch || 0, lean = pose.lean || 0, stance = pose.stance == null ? .2 : pose.stance;
-  const hipZ = 1.28 - crouch * .4, hipA = -crouch * .15, shA = hipA + Math.sin(lean) * .95, shZ = hipZ + Math.cos(lean) * .95;
-  const armR = pose.armR == null ? 0 : pose.armR, armL = pose.armL == null ? .08 : pose.armL;
-  const handR = P(shA + Math.sin(armR + .18) * .95, .42, shZ - .03 - Math.cos(armR + .18) * .95);
-  const handL = P(shA + Math.sin(armL + .2) * .9, -.43, shZ - .03 - Math.cos(armL + .2) * .9);
-  const elbowR = P(shA + Math.sin(armR) * .46, .4, shZ - .03 - Math.cos(armR) * .46), elbowL = P(shA + Math.sin(armL) * .46, -.42, shZ - .03 - Math.cos(armL) * .46);
-  const shR = P(shA, .36, shZ - .03), shL = P(shA, -.36, shZ - .03);
-  return {
-    kind: pose, k, pelvis: P(hipA, 0, hipZ), hipYaw: yaw, chestYaw: yaw, lean, roll: 0,
-    footL: P(stance * 2, -.2, .12), footR: P(-stance * 1.2, .2, .12), toeL: yaw, toeR: yaw,
-    handL, handR, poleL: vSub(elbowL, vMix(shL, handL, .5)), poleR: vSub(elbowR, vMix(shR, handR, .5)),
-  };
-}
-function mixBody(a, b, t) {
-  const out = { kind: b.kind, k: b.k };
-  for (const key in b) {
-    if (key === 'kind' || key === 'k') continue;
-    const va = a[key] == null ? b[key] : a[key], vb = b[key];
-    out[key] = Array.isArray(vb) ? vMix(va, vb, t) : /yaw|toe/i.test(key) ? angMix(va, vb, t) : lerp(va, vb, t);
-  }
-  return out;
-}
-// smooth keyframes: [[time, value], ...], eased in and out between neighbours, held flat outside
-function keyed(s, keys) {
-  if (s <= keys[0][0]) return keys[0][1];
-  for (let i = 1; i < keys.length; i++) {
-    if (s > keys[i][0]) continue;
-    const [t0, a] = keys[i - 1], [t1, b] = keys[i];
-    return lerp(a, b, ease((s - t0) / (t1 - t0)));
-  }
-  return keys[keys.length - 1][1];
-}
-// a hand on a circle round the shoulder in the vertical plane along `dir`: figure()'s arm angle (0 down, -pi up,
-// -2pi down in front), plus a sideways push towards `side`
-const armAt = (sh, dir, theta, reach, side = [0, 0, 0]) => vAdd(vAdd(sh, vMul(dir, Math.sin(theta) * reach)), vAdd([0, 0, -Math.cos(theta) * reach], side));
-
-/* ---------- the bowler ----------
-   Planned once per bowler type, as a list of footfalls, so a planted foot never slides:
-   - the run starts from standing and builds up (fast: a sprint; spin: a stroll, then two quicker steps). Strides
-     lengthen with speed, and each foot is planted under the body at mid-stance, on the ground it actually covers;
-   - fast: the last left foot takes off into a bound, the right (back) foot lands side-on, the front foot plants
-     just behind the chalk, the arm comes over, and he follows through for two steps. Spin: the same, smaller;
-   - the follow-through ends exactly where the old one did (it matters: the bowler fields from there).
-   The release frame puts the bowling hand on the planned release point d.R, so the ball leaves from the hand. */
-const RUNUP = {
-  fast: { take: .3, back: .13, front: .045, ftD: 1.3, leap: .36, side: 1.3, lean: .38, base: 1.2, lateral: .1, stance: .32, pump: 1.05, wind: -.6, finish: -5.7, relLean: .18, plant: .3 },
-  spin: { take: .26, back: .12, front: .045, ftD: .6, leap: .12, side: .8, lean: .1, base: 1.24, lateral: .13, stance: .5, pump: .45, wind: -1.7, finish: -5.3, relLean: .04, plant: .08 },
-};
-const RELEASE_AHEAD = .15;                         // at release his hips are a little ahead of his planned x
-const strideLen = v => .42 + .12 * v;              // one step's length at speed v: longer strides when faster
-const plans = {};
-function runPlan(type) {
-  if (plans[type]) return plans[type];
-  const B = BOWLERS[type], R = RUNUP[type], mark = B.mark, T = (RELEASE_X - mark) / B.run, N = 600;
-  const shape = type === 'fast'
-    ? s => ease(clamp(s / (.45 * T), 0, 1)) * lerp(1, .82, ease(clamp((s - (T - .3)) / .3, 0, 1)))
-    : s => (.45 * ease(clamp(s / (.18 * T), 0, 1)) + .55 * ease(clamp((s - .45 * T) / (.25 * T), 0, 1))) * lerp(1, .85, ease(clamp((s - (T - .25)) / .25, 0, 1)));
-  const X = [0], Psi = [0];
-  for (let i = 1; i <= N; i++) X.push(X[i - 1] + (shape(T * (i - .5) / N)) * T / N);
-  const scale = (RELEASE_X - mark) / X[N];
-  for (let i = 1; i <= N; i++) { const v = shape(T * (i - .5) / N) * scale; Psi.push(Psi[i - 1] + v / strideLen(v) * T / N); }
-  const at = (arr, s) => { const f = clamp(s / T, 0, 1) * N, i = Math.min(N - 1, Math.floor(f)); return lerp(arr[i], arr[i + 1], f - i); };
-  const vRel = shape(T) * scale, power = vRel * .4 / R.ftD;
-  const runX = s => mark + at(X, s) * scale;
-  const psi = s => at(Psi, s);
-  const timeOfPsi = p => { let lo = 0, hi = T; for (let n = 0; n < 40; n++) { const m = (lo + hi) / 2; if (psi(m) < p) lo = m; else hi = m; } return (lo + hi) / 2; };
-  // after release: carry on at the release speed and slow down, then exactly the old follow-through from v = .75
-  const ftX = s => {
-    const v = clamp((s - T) / .4, 0, 1);
-    if (v >= .75) return RELEASE_X + ease(v) * R.ftD;
-    return RELEASE_X + R.ftD * lerp(1 - (1 - v) ** power, ease(v), ease(clamp((v - .5) / .25, 0, 1)));
-  };
-  const bodyX = s => s <= T ? runX(s) : ftX(s);
-  const y = BOWLER.y, side = f => y + (f === 'L' ? -1 : 1) * R.lateral;
-  const tTake = T - R.take, last = psi(tTake) - .25, run = [];
-  for (let j = 0; last - j > .2; j++) {
-    const tm = timeOfPsi(last - j), v = Math.max(.5, (runX(tm + .01) - runX(tm - .01)) / .02), half = R.stance * strideLen(v) / v / 2;
-    const f = j % 2 ? 'R' : 'L';
-    run.unshift({ foot: f, t0: tm - half, t1: j === 0 ? tTake : tm + half, x: runX(tm), y: side(f), toe: 0, lift: .16 + .025 * v });
-  }
-  const first = f => run.find(p => p.foot === f);
-  const stand = f => ({ foot: f, t0: -1e9, t1: first(f) ? Math.max(0, first(f).t0 - .2) : 0, x: mark + (f === 'L' ? .2 : -.12), y: side(f), toe: 0, lift: 0 });
-  const fin = ftX(T + .4);
-  const steps = [stand('L'), stand('R'), ...run,
-    { foot: 'R', t0: T - R.back, t1: T - .035, x: runX(T - R.back) + .05, y: y + .03, toe: 1.25, lift: R.leap * 1.1 },
-    { foot: 'L', t0: T - R.front, t1: T + .19, x: RELEASE_X + RELEASE_AHEAD + R.plant, y: y - .1, toe: .3, lift: R.leap * .8 },
-    { foot: 'R', t0: T + .21, t1: 1e9, x: fin - .144, y: y + .2, toe: 0, lift: .3 },
-    { foot: 'L', t0: T + .35, t1: 1e9, x: fin + .24, y: y - .2, toe: 0, lift: .22 },
-  ];
-  const feet = { L: steps.filter(p => p.foot === 'L'), R: steps.filter(p => p.foot === 'R') };
-  return (plans[type] = { T, tTake, feet, bodyX, psi, last, R, vRel, power });
-}
-// where one foot is at time s: planted, or swinging between two footfalls along an arc. w is how far through the
-// swing it is (1 when planted), for the pelvis to sink onto a landing leg
-function footAt(list, s) {
-  for (let i = 0; i < list.length; i++) {
-    const p = list[i];
-    if (s < p.t0) {
-      const a = list[i - 1], w = clamp((s - a.t1) / (p.t0 - a.t1), 0, 1), e = ease(w);
-      return { pos: [lerp(a.x, p.x, e), lerp(a.y, p.y, e), .12 + p.lift * Math.sin(Math.PI * w)], toe: lerp(a.toe, p.toe, e), w, planted: false };
-    }
-    if (s <= p.t1) return { pos: [p.x, p.y, .12], toe: p.toe, w: 1, planted: true };
-  }
-  const p = list[list.length - 1];
-  return { pos: [p.x, p.y, .12], toe: p.toe, w: 1, planted: true };
-}
-// the highest the pelvis can be with both legs reaching their feet (a foot about to land counts as it comes down)
-function reachZ(pelvis, hipYaw, feet, k) {
-  const hr = [-Math.sin(hipYaw), Math.cos(hipYaw), 0];
-  let z = pelvis[2];
-  feet.forEach((f, i) => {
-    const hip = vAdd(pelvis, vMul(hr, .15 * k * (i ? 1 : -1))), dx = f.pos[0] - hip[0], dy = f.pos[1] - hip[1];
-    const top = f.pos[2] + Math.sqrt(Math.max(0, (LEG_LEN * k * .985) ** 2 - dx * dx - dy * dy));
-    const w = f.planted ? 1 : ease(clamp((f.w - .65) / .35, 0, 1));
-    z = Math.min(z, lerp(pelvis[2], Math.min(pelvis[2], top), w));
-  });
-  return z;
-}
-// the bowler s seconds after the run-up started: { x, yaw, body }
-function bowlerAt(d, s) {
-  const P = runPlan(d.type), R = P.R, T = P.T, k = FIG_SCALE, yaw = BOWLER_YAW, x = P.bodyX(s);
-  const tTake = P.tTake, tBack = T - R.back, tFront = T - R.front;
-  const fL = footAt(P.feet.L, s), fR = footAt(P.feet.R, s);
-  // run: arms and hips swing against the legs, one cycle every two steps
-  const psi = P.psi(Math.min(s, tTake)), swing = Math.cos(Math.PI * (psi - P.last + .5)) * (s < .05 ? s / .05 : 1);
-  const toRun = clamp(s / .25, 0, 1);
-  const lean = keyed(s, [[0, .02], [.3, R.lean], [tTake - .1, R.lean], [tTake, -.02], [tBack, -.14], [T, R.relLean], [T + .13, .55], [T + .4, .14]]);
-  const roll = keyed(s, [[tBack, 0], [tFront, .04], [T, -.08], [T + .22, 0]]);
-  const chest = keyed(s, [[tTake - .1, 0], [tBack, R.side], [T - .02, -.05], [T + .2, -.75], [T + .4, -.2]]) - (s < tTake ? swing * .14 * toRun : 0);
-  const hips = keyed(s, [[tTake - .1, 0], [tBack, R.side * .62], [T, .1], [T + .2, -.45], [T + .4, -.1]]) + (s < tTake ? swing * .12 * toRun : 0);
-  const ahead = keyed(s, [[tFront, 0], [T, RELEASE_AHEAD], [T + .4, 0]]);
-  // height: a bob on each stride (high in the air, low over the planted foot), and a real leap into the bound
-  let z = R.base + (s < .2 ? (1.28 - R.base) * (1 - s / .2) : 0);
-  if (!fL.planted && !fR.planted) {
-    const a = s < tTake ? Math.max(...[...P.feet.L, ...P.feet.R].filter(p => p.t1 <= s).map(p => p.t1)) : tTake;
-    const b = s < tTake ? Math.min(...[...P.feet.L, ...P.feet.R].filter(p => p.t0 > s).map(p => p.t0)) : tBack;
-    z += (s >= tTake && s < tBack ? R.leap : .06) * Math.sin(Math.PI * clamp((s - a) / (b - a), 0, 1));
-  } else if (s < tTake) z -= .04 * toRun;
-  z += keyed(s, [[tFront, 0], [T - .01, .07], [T + .1, -.04], [T + .4, .06]]);
-  const hipYaw = yaw + hips;
-  let pelvis = [x + ahead, BOWLER.y, z * k];
-  pelvis[2] = reachZ(pelvis, hipYaw, [fL, fR], k);
-  const body = { kind: 'run', k, pelvis, hipYaw, chestYaw: yaw + chest, lean, roll, footL: fL.pos, footR: fR.pos, toeL: yaw + fL.toe, toeR: yaw + fR.toe };
-  const f = bodyFrame(body), dir = [Math.cos(yaw), Math.sin(yaw), 0], left = [Math.sin(yaw), -Math.cos(yaw), 0], down = [0, 0, -1];
-  // run pose: elbows bent, hands pumping fore and aft
-  const runHand = (sh, a) => armAt(sh, f.fwd, a, .72);
-  let hR = runHand(f.shR, swing * R.pump), hL = runHand(f.shL, -swing * R.pump);
-  // gather: both hands come together in front of the chest, the ball held in both
-  const chin = side => vAdd(vAdd(f.neck, vAdd(vMul(f.fwd, .34 * k), vMul(down, .3 * k))), vMul(f.right, side * .06 * k));
-  const g = ease(clamp((s - (tTake - .16)) / .16, 0, 1));
-  hR = vMix(hR, chin(1), g); hL = vMix(hL, chin(-1), g);
-  // bound: front arm reaches up at the batter, bowling arm drops down and back (coiled) by the back-foot landing
-  const coil = ease(clamp((s - tTake) / (tBack - tTake), 0, 1));
-  const frontUp = armAt(f.shL, dir, -2.55, .9 * k), bowlBack = armAt(f.shR, dir, R.wind, .92 * k, vMul(left, -.08 * k));
-  if (s > tTake) { hR = vMix(chin(1), bowlBack, coil); hL = vMix(chin(-1), frontUp, coil); }
-  // delivery: the bowling arm comes over the top in a full circle, accelerating; the front arm pulls down to the hip
-  if (s > tBack) {
-    const u = clamp((s - tBack) / (T - tBack), 0, 1), th = lerp(R.wind, ARM_RELEASE, u * u * (1.6 - .6 * u));
-    hR = armAt(f.shR, dir, th, .92 * k);
-    hL = vMix(frontUp, armAt(f.shL, dir, -.15, .85 * k, vMul(left, .3 * k)), ease(u));
-  }
-  // follow-through: the arm carries on down and across to the far hip, then both hang as he slows
-  if (s > T) {
-    const u = clamp((s - T) / .26, 0, 1), th = lerp(ARM_RELEASE, R.finish, 1 - (1 - u) ** 2);
-    const across = vMul(left, .45 * k * ease(u));
-    hR = armAt(f.shR, dir, th, .92 * k, across);
-    hL = armAt(f.shL, dir, lerp(-.15, .55, ease(u)), .85 * k, vMul(left, .3 * k * (1 - u)));
-    const relax = ease(clamp((s - T - .26) / .14, 0, 1));
-    hR = vMix(hR, armAt(f.shR, f.fwd, .2, .9 * k), relax); hL = vMix(hL, armAt(f.shL, f.fwd, .1, .88 * k), relax);
-  }
-  // the release frame puts the hand exactly on the planned release point; the arm's whole circle bends towards it
-  // from the back-foot landing, and lets go of it through the follow-through
-  if (d.R && s > tBack && s < T + .2) {
-    const w = s <= T ? ease((s - tBack) / (T - tBack)) : 1 - ease((s - T) / .2);
-    hR = vAdd(hR, vMul(vSub([d.R.x, d.R.y, d.R.z], releaseArc(d.type)), w));
-  }
-  body.handR = hR; body.handL = hL;
-  // elbows point back while running, then out to the side for the bowling action, turning across smoothly
-  const back = vAdd(vMul(f.fwd, -1), [0, 0, -.4]);
-  body.poleR = vMix(back, vAdd(left, [0, 0, -.2]), ease(clamp((s - tTake) / (tBack - tTake), 0, 1)));
-  body.poleL = vMix(back, vAdd(left, vMul(f.fwd, -.3)), ease(clamp((s - (tTake - .16)) / (tBack - tTake + .16), 0, 1)));
-  return { x, yaw, body };
-}
-// the bowling hand at the release frame before it is pinned to d.R (the same for every ball of a type)
-const arcs = {};
-function releaseArc(type) {
-  if (arcs[type]) return arcs[type];
-  const P = runPlan(type), b = bowlerAt({ type }, P.T).body, f = bodyFrame(b);
-  return (arcs[type] = armAt(f.shR, [Math.cos(BOWLER_YAW), Math.sin(BOWLER_YAW), 0], ARM_RELEASE, .92 * FIG_SCALE));
-}
-// walking back to the mark: a cyclic gait driven by the distance walked, so the planted foot keeps still
-function gaitBody(x, y, yaw, dist, k = FIG_SCALE) {
-  const cycle = 1.7, stance = .56, L = stance * cycle, fx = Math.cos(yaw), fy = Math.sin(yaw), sx = -fy, sy = fx;
-  const foot = (ph, b) => {
-    const q = ((ph + stance / 2) % 1 + 1) % 1;
-    let a, z = .12;
-    if (q < stance) a = L / 2 - q / stance * L;
-    else { const w = (q - stance) / (1 - stance); a = lerp(-L / 2, L / 2, ease(w)); z += .13 * Math.sin(Math.PI * w); }
-    return [x + (fx * a + sx * b) * k, y + (fy * a + sy * b) * k, z * k];
-  };
-  const ph = dist / cycle, sw = Math.cos(2 * Math.PI * ph), bob = .03 * Math.cos(4 * Math.PI * ph);
-  const body = { kind: 'walk', k, pelvis: [x, y, (1.25 + bob) * k], hipYaw: yaw + .1 * sw, chestYaw: yaw - .1 * sw, lean: .06, roll: 0,
-    footL: foot(ph, -.13), footR: foot(ph + .5, .13), toeL: yaw, toeR: yaw };
-  const f = bodyFrame(body);
-  body.handR = armAt(f.shR, f.fwd, -sw * .5, .9 * k); body.handL = armAt(f.shL, f.fwd, sw * .5, .9 * k);
-  body.poleR = body.poleL = vAdd(vMul(f.fwd, -1), [0, 0, -.3]);
-  return body;
-}
-// the release pose of the original run-up. The release point d.R is still worked out from it, so every ball
-// leaves the hand from exactly the same place as before the run-up was redrawn
-const releasePose = type => ({ scale: FIG_SCALE, stance: .3, lean: BOWLERS[type].lean + .1, armR: ARM_RELEASE, armL: .4 });
-// start a delivery now. opts (and G.force) may fix: type 'fast'|'spin', line 'stumps'|'off'|'leg', move 'in'|'away'|'none',
-// amount (sideways movement at the stumps), offset (aim at the stumps relative to PITCH_Y), length (pitching x)
-function bowl(opts = {}) {
-  if (G.phase !== 'idle' || G.match && G.match.result) return null;
-  const f = { ...G.force, ...opts };
-  // what this ball changes before it is settled, so a delivery cut short by a dialog can be taken back (see pause)
-  const undo = { rng: rng.state(), over: G.over, ballInOver: G.ballInOver, overType: G.overType, thisOver: G.match && G.match.thisOver, status: nodes.status.textContent };
-  if (G.ballInOver >= 6) {
-    G.over++; G.ballInOver = 0;
-    if (G.match) G.match.thisOver = [];
-    G.overType = G.overType === 'fast' ? 'spin' : 'fast';
-    setStatus(G.overType === 'fast' ? 'fast bowler this over' : 'spinner this over');
-  }
-  showHint();
-  const type = f.type || G.overType, B = BOWLERS[type];
-  const line = f.line || pickOne(LINE_ODDS);
-  const move = f.move || pickOne(B.moves);
-  const amount = move === 'none' ? 0 : f.amount != null ? f.amount : range(B.move);
-  const aim = PITCH_Y + (f.offset != null ? f.offset : range(LINES[line]));
-  const px = f.length != null ? f.length : range(B.pitch);
-  G.balls++; G.ballInOver++;
-  const d = { stage: 'runup', n: G.balls, type, line, move, amount, aim, t0: G.time, mark: B.mark, runT: (RELEASE_X - B.mark) / B.run, swing: null, hitAt: null, bounced: false, undo };
-  // the ball leaves the bowling hand at the top of the delivery stride
-  const hand = figure(RELEASE_X, BOWLER.y, BOWLER_YAW, releasePose(type), G.bowler.palette, () => {});
-  d.R = { x: hand[0], y: hand[1], z: hand[2] };
-  // it pitches on the straight line from the hand to its aim at the stumps
-  d.P = { x: px, y: lerp(d.R.y, aim, (px - d.R.x) / (AIM_X - d.R.x)) };
-  d.t1 = Math.hypot(d.P.x - d.R.x, d.P.y - d.R.y) / B.speed;
-  d.vz1 = (BALL_R - d.R.z + GRAVITY * d.t1 * d.t1 / 2) / d.t1;
-  // off the pitch it heads for its moved line at the stumps
-  d.end = aim + (move === 'in' ? LEG * amount : move === 'away' ? -LEG * amount : 0);
-  const ex = AIM_X - d.P.x, ey = d.end - d.P.y, el = Math.hypot(ex, ey);
-  d.u = { x: ex / el, y: ey / el };
-  d.v2 = B.speed * B.after;
-  const after = x => (x - d.P.x) / (d.v2 * d.u.x), tS = after(AIM_X);
-  d.vz2 = (B.bounce - BALL_R + GRAVITY * tS * tS / 2) / tS;
-  d.tRelease = d.t0 + d.runT;
-  d.tPitch = d.tRelease + d.t1;
-  d.tContact = d.tPitch + after(CONTACT_X);
-  d.tStumps = d.tPitch + after(STUMPS_FACE - BALL_R);
-  G.del = d;
-  G.ball = null;
-  G.stumps.down = false;
-  G.bowler.x = d.mark; G.bowler.y = BOWLER.y;
-  setField(fieldFor(G.over), true);
-  return d;
-}
-function ballAt(d, t) {
-  const s = t - d.tRelease;
-  if (s < d.t1) {
-    const k = s / d.t1;
-    return { x: lerp(d.R.x, d.P.x, k), y: lerp(d.R.y, d.P.y, k), z: d.R.z + d.vz1 * s - GRAVITY * s * s / 2 };
-  }
-  const q = s - d.t1, v = d.v2 * q, q2 = 2 * d.vz2 / GRAVITY;
-  const at = { x: d.P.x + d.u.x * v, y: d.P.y + d.u.y * v, vx: d.u.x * d.v2, vy: d.u.y * d.v2 };
-  // a slow ball can come down again before it reaches the bricks: it bounces a second time, lower
-  if (q <= q2) return { ...at, z: BALL_R + d.vz2 * q - GRAVITY * q * q / 2, vz: d.vz2 - GRAVITY * q };
-  const r = q - q2, vz3 = d.vz2 * BOUNCE;
-  return { ...at, z: BALL_R + vz3 * r - GRAVITY * r * r / 2, vz: vz3 - GRAVITY * r };
-}
-function gradeOf(dt, win) {
-  const a = Math.abs(dt);
-  return a <= win[0] ? 0 : a <= win[1] ? 1 : a <= win[2] ? 2 : 3;
-}
-/* one swing per ball, in direction dir (0-7, see DIRS), pressed at time t. The press is graded against the ball's
-   arrival at the bat; the timing alone decides whether the bat meets the ball. Hitting against the line costs one
-   grade, and so does a ball that moved off the pitch unless the timing was perfect, but neither (nor both) can
-   take a connecting swing past mistimed. Returns the swing, or null when there is nothing to swing at. */
-function swingAt(dir, t = G.time) {
-  const d = G.del;
-  if (G.phase === 'pick' || d.stage !== 'flight' || d.swing || t >= d.tStumps) return null;
-  const B = BOWLERS[d.type], lineY = ballAt(d, d.tContact).y, line = lineOf(lineY);
-  const against = line === 'off' && LEG_SIDE.includes(dir) || line === 'leg' && OFF_SIDE.includes(dir);
-  const dt = t - d.tContact, moved = d.move !== 'none';
-  let grade = gradeOf(dt, B.window);
-  const timed = grade;
-  if (grade < 3 && (against || moved && grade > 0)) grade = Math.min(grade + 1, 2);
-  const hitAt = Math.max(t, d.tContact);
-  if (hitAt >= d.tStumps) grade = 3;
-  d.swing = { dir, t, dt, grade, timed, side: grade === 0 ? null : dt < 0 ? 'early' : 'late', against, moved, line };
-  if (grade < 3) d.hitAt = hitAt;
-  // the batter's swing (drawing only): it meets the ball where it really is at hitAt, or swings through its line
-  G.batter.swing = null;
-  const meet = grade < 3 ? hitAt : d.tContact, cp = ballAt(d, meet), from = batterAt(t);
-  G.batter.swing = { t0: t, dir, lineY, grade, from, tc: Math.max(grade < 3 ? hitAt : t + BAT_SWING, t + .035), C: { x: cp.x, y: cp.y, z: cp.z } };
-  planSwing(G.batter.swing, d);
-  if (!swungYet) { setSwungYet(); setStatus(G.you.name + ' need ' + (G.match ? G.match.target - G.match.runs : '') + ' to win'); }
-  return d.swing;
-}
-/* the swing met the ball: it leaves the bat in the chosen direction, give or take the grade's scatter, at a speed
-   and climb drawn for the grade. G.force may fix speed, lift (degrees) and scatter (degrees, signed) for tests */
-function strike(d) {
-  const at = ballAt(d, d.hitAt), sw = d.swing, S = SHOTS[sw.grade], f = G.force;
-  const w = DIR_WORLD[sw.dir], aim = Math.atan2(w[1], w[0]);
-  const scatter = f.scatter != null ? f.scatter : (rng() * 2 - 1) * S.scatter;
-  let lift = f.lift != null ? f.lift : range(S.lift), speed = f.speed != null ? f.speed : range(S.speed);
-  let yaw = aim + scatter * Math.PI / 180, flat = Math.cos(lift * Math.PI / 180) * speed;
-  if (sw.dir === GLANCE) {
-    // aim a ball's width and more past the far side of the bricks and the drum, at the chalk
-    const clearY = Math.min(BACKSTOP.y - BACKSTOP.r, PITCH_Y - BRICK.l) - 1;
-    yaw = Math.atan2(clearY - at.y, CHALK_X - at.x) + scatter * Math.PI / 180;
-    if (f.lift == null) lift = Math.min(lift, GLANCE_LIFT);
-    if (f.speed == null) speed *= GLANCE_PACE;
-    flat = Math.cos(lift * Math.PI / 180) * speed;
-  }
-  // played across a ball that moved: pushed towards the movement and slower, or a thin edge (see CROSS)
-  const cross = f.cross != null ? f.cross : crossOf(d, sw.dir) * CROSS.timing[Math.min(sw.timed, 2)], side = Math.sign(d.end - d.aim);
-  let edge = false;
-  if (cross > 0) {
-    edge = f.edge != null ? f.edge : rng() < clamp((cross - CROSS.edgeFrom) * CROSS.edgeRate, 0, CROSS.edgeMax);
-    if (edge) {
-      yaw = Math.atan2(side, range(CROSS.fine));
-      speed = range(CROSS.edgeSpeed);
-      lift = rng() < CROSS.loops ? range(CROSS.loop) : range(CROSS.low);
-    } else {
-      const turn = Math.atan2(Math.sin(Math.atan2(side, 0) - yaw), Math.cos(Math.atan2(side, 0) - yaw));
-      yaw += Math.sign(turn) * Math.min(Math.abs(turn), cross * CROSS.push * Math.PI / 180);
-      speed *= 1 - CROSS.pace * cross;
-    }
-    flat = Math.cos(lift * Math.PI / 180) * speed;
-  }
-  d.cross = cross; d.edge = edge;
-  G.ball = {
-    x: at.x, y: at.y, z: Math.max(at.z, .35), vx: Math.cos(yaw) * flat, vy: Math.sin(yaw) * flat, vz: Math.sin(lift * Math.PI / 180) * speed,
-    t: 0, touched: false, bounces: 0, event: null, from: { x: at.x, y: at.y },
-  };
-  d.shot = { speed, lift, scatter };
-  d.stage = 'live';
-  d.tHit = d.hitAt;
-  d.tReact = REACT;
-  d.chase = planChase(G.ball, REACT);
-  sfx('hit', sw.grade);
-  for (const f of G.fielders) f.routeFor = null;  // they will walk back from wherever the chase takes them
-  // off the middle it sparks; off the edge it scuffs up dust
-  if (sw.grade < 2 && !edge) burst(at, sw.grade ? 6 : 10, SPARK, sw.grade ? 2.2 : 3.4, 2.5, .3);
-  else burst(at, 7, DUST, 1.1, 1.5, .4);
-}
-// where the loose ball is resting or bouncing: the paving, or the top of a prop it is above
-function floorUnder(b) {
-  let floor = 0;
-  for (const p of PROPS) {
-    if (b.z - BALL_R < p.h - .05) continue;
-    const inside = p.r != null ? Math.hypot(b.x - p.x, b.y - p.y) < p.r : b.x > p.x0 && b.x < p.x1 && b.y > p.y0 && b.y < p.y1;
-    if (inside) floor = Math.max(floor, p.h);
-  }
-  return floor;
-}
-// push the ball out of a prop's side and send it back off the face it hit
-function hitProps(b) {
-  for (const p of PROPS) {
-    if (b.z - BALL_R >= p.h - .05) continue;
-    let nx, ny, gap;
-    if (p.r != null) {
-      const dx = b.x - p.x, dy = b.y - p.y, dist = Math.hypot(dx, dy) || 1e-6;
-      gap = dist - p.r - BALL_R; nx = dx / dist; ny = dy / dist;
-    } else {
-      const cx = clamp(b.x, p.x0, p.x1), cy = clamp(b.y, p.y0, p.y1), dx = b.x - cx, dy = b.y - cy, dist = Math.hypot(dx, dy);
-      if (dist > 0) { gap = dist - BALL_R; nx = dx / dist; ny = dy / dist; }
-      else {
-        // the centre got inside: leave by the nearest face
-        const faces = [[b.x - p.x0, -1, 0], [p.x1 - b.x, 1, 0], [b.y - p.y0, 0, -1], [p.y1 - b.y, 0, 1]].sort((a, c) => a[0] - c[0]);
-        gap = -faces[0][0] - BALL_R; nx = faces[0][1]; ny = faces[0][2];
-      }
-    }
-    if (gap >= 0) continue;
-    b.x -= nx * gap; b.y -= ny * gap;
-    const vn = b.vx * nx + b.vy * ny;
-    const e = p.bounce != null ? p.bounce : PROP_BOUNCE;
-    if (vn < 0) { b.vx -= (1 + e) * vn * nx; b.vy -= (1 + e) * vn * ny; }
-    if (p.bounce == null && !b.event) b.event = { how: 'wall', side: b.x - WALL_X < b.y - WALL_Y ? 'x' : 'y', touched: b.touched, prop: true, at: { x: b.x, y: b.y, z: b.z } };
-    b.touched = true;
-  }
-}
-/* one fixed step of the loose ball. It notes the first thing that ends the ball as b.event: 'wall' (a house front,
-   below its top), 'over' (clear over a house), or 'chalk' (over the boundary line on an open side), each with
-   b.touched telling whether it had bounced (or hit something) on the way */
-function stepBall(b, dt) {
-  b.t += dt;
-  if (b.gone) return;
-  b.x += b.vx * dt; b.y += b.vy * dt; b.z += b.vz * dt; b.vz -= GRAVITY * dt;
-  const floor = floorUnder(b), past = b.x > CHALK_X || b.y > CHALK_Y;
-  if (b.z < floor + BALL_R) {
-    b.z = floor + BALL_R;
-    if (b.vz < -BOUNCE_MIN) {
-      b.vz *= -BOUNCE; b.vx *= SKID; b.vy *= SKID;
-      if (!b.touched) b.first = { x: b.x, y: b.y };
-      b.touched = true; b.bounces++;
-    } else {
-      b.vz = 0; b.touched = true;
-      const sp = Math.hypot(b.vx, b.vy), next = Math.max(0, sp - (past ? VERGE_ROLL : ROLL) * dt);
-      if (sp > 0) { b.vx *= next / sp; b.vy *= next / sp; }
-    }
-  }
-  hitProps(b);
-  // the house fronts: a ball clear above the parapet sails over; anything lower thumps the wall and comes back
-  if (!b.over) for (const side of ['x', 'y']) {
-    const pos = side === 'x' ? b.x : b.y, face = side === 'x' ? WALL_X : WALL_Y;
-    if (pos > face + BALL_R) continue;
-    const top = wallTop(side, side === 'x' ? b.y : b.x);
-    if (b.z - BALL_R > top) {
-      b.over = side;
-      if (!b.event) b.event = { how: 'over', side, touched: b.touched, at: { x: b.x, y: b.y, z: b.z } };
-      break;
-    }
-    if (!b.event) b.event = { how: 'wall', side, touched: b.touched, at: { x: b.x, y: b.y, z: b.z } };
-    b.touched = true;
-    if (side === 'x') { b.x = face + BALL_R; b.vx = Math.abs(b.vx) * WALL_BOUNCE; }
-    else { b.y = face + BALL_R; b.vy = Math.abs(b.vy) * WALL_BOUNCE; }
-    b.vx *= .7; b.vy *= .7;
-  }
-  if (past && !b.event) b.event = { how: 'chalk', touched: b.touched, at: { x: b.x, y: b.y, z: b.z } };
-  // out of sight: dropped behind a house, or off the edge of the lane into the white
-  if (b.over && b.z < wallTop(b.over, b.over === 'x' ? b.y : b.x) - .3) b.gone = true;
-  if (b.x > EDGE_X - .4 || b.y > EDGE_Y - .4) {
-    if (b.z <= BALL_R + .01) { b.vx = b.vy = 0; } // settles in the weeds
-    if (b.x > EDGE_X + 3 || b.y > EDGE_Y + 3) b.gone = true;
-  }
-  b.still = !b.gone && b.vz === 0 && b.vx === 0 && b.vy === 0;
-}
-/* ---------- fielding ----------
-   At the hit the ball's whole path is replayed ahead of time (same fixed steps, so it is exact) to find the first
-   moment any fielder can be at it: that fielder chases to that spot, the others stay set and watch. A boundary
-   reached first beats them all. If the chase somehow falls through, it is planned again from where things are. */
-const team = () => [G.bowler, ...G.fielders];
-const canCatch = b => !b.touched && b.z <= CATCH_Z;
-const canGather = (b, f) => f === G.bowler && Math.hypot(b.vx, b.vy, b.vz) > BOWLER_HOT ? false
-  : b.touched ? b.z <= GATHER_Z : b.z <= (f === G.bowler ? BOWLER_CATCH_Z : CATCH_Z);
-const reachOf = (b, f) => b.touched ? GATHER_R : f === G.bowler ? BOWLER_CATCH_R : CATCH_R;
-function planChase(ball, react) {
-  const sim = { ...ball }, players = team();
-  while (sim.t < LIVE_MAX) {
-    stepBall(sim, PHYS_DT);
-    if (sim.event || sim.gone) break;
-    const air = !sim.touched, run = air ? Math.max(0, sim.t - ball.t - react * CATCH_REACT / REACT) * CATCH_RUN : Math.max(0, sim.t - ball.t - react) * RUN_SPEED;
-    // (the bowler cannot run for a catch: he only takes one that comes to him; once it lands he chases like anyone)
-    for (const f of players) if (canGather(sim, f) && Math.hypot(f.x - sim.x, f.y - sim.y) <= (f === G.bowler && air ? 0 : run) + reachOf(sim, f)) return { f, t: sim.t, x: sim.x, y: sim.y, air, react };
-    if (sim.still) break;
-  }
-  // nobody gets there in time: the nearest runs to where the ball ends up (it may be a boundary)
-  const f = players.reduce((a, c) => Math.hypot(c.x - sim.x, c.y - sim.y) < Math.hypot(a.x - sim.x, a.y - sim.y) ? c : a);
-  return { f, t: Infinity, x: sim.x, y: sim.y };
-}
-const RUN_POSE = { lean: .3 };
-function stepFielders(d, dt) {
-  const b = G.ball, c = d.chase;
-  for (const f of team()) {
-    if (f === c.f && b.t - d.tReact - (c.air ? c.react * (CATCH_REACT / REACT - 1) : 0) >= 0) {
-      const dx = c.x - f.x, dy = c.y - f.y, gap = Math.hypot(dx, dy), go = Math.min(gap, (c.air ? CATCH_RUN : RUN_SPEED) * dt);
-      if (gap > 1e-6) { f.x += dx / gap * go; f.y += dy / gap * go; f.yaw = Math.atan2(dy, dx); }
-      f.running = gap > .02;
-    } else if (f !== G.bowler || b.t > .3) f.yaw = facing(f, b);
-  }
-}
-// the fielder who can reach the ball now, if any
-function gatherer(b) {
-  for (const f of team()) if (canGather(b, f) && Math.hypot(f.x - b.x, f.y - b.y) <= reachOf(b, f)) return f;
-  return null;
-}
-const runsFor = dist => RUN_DIST.findIndex(r => dist < r) < 0 ? 3 : RUN_DIST.findIndex(r => dist < r);
-// step the live ball and the chase up to the delivery's clock, and settle the ball as soon as something ends it
-function stepLive(d) {
-  const b = G.ball, due = G.time - d.tHit;
-  while (b.t + PHYS_DT <= due + 1e-9) {
-    const bounces = b.bounces, vz = b.vz;
-    stepBall(b, PHYS_DT);
-    if (b.bounces > bounces) sfx('bounce', -vz / 7);
-    stepFielders(d, PHYS_DT);
-    const e = b.event;
-    if (e && e.how === 'wall') { burst(e.at, 8, DUST, 1.4, 1.2, .45); sfx('wall', e.prop ? .7 : 1); }
-    if (e) {
-      // clean over a house front: lost in the neighbour's, and the batter is out
-      if (e.how === 'over') return finish(d, 'hit', { runs: 0, out: true, how: 'over the wall' });
-      return finish(d, 'hit', { runs: e.touched ? 4 : 6, out: false, how: e.how });
-    }
-    const f = gatherer(b);
-    if (f) {
-      const dist = Math.hypot(b.x - b.from.x, b.y - b.from.y);
-      const dropped = canCatch(b) && Math.hypot(b.vx, b.vy, b.vz) > CATCH_HOT && rng() < DROP, caught = canCatch(b) && !dropped;
-      b.held = f; b.vx = b.vy = b.vz = 0; b.caught = caught;
-      if (caught) return finish(d, 'hit', { runs: 0, out: true, how: 'caught', by: f.name || 'bowler', dist });
-      return finish(d, 'hit', { runs: runsFor(dist), out: false, how: 'fielded', by: f.name || 'bowler', dist, dropped });
-    }
-    if (b.gone) return finish(d, 'hit', { runs: 0, out: false, how: 'lost' });
-    // the planned gather did not happen: plan again from here, with no reaction delay
-    if (b.t > d.chase.t + .25 || d.chase.t === Infinity && b.still) { d.chase = planChase(b, 0); d.tReact = b.t; }
-  }
-  if (due >= LIVE_MAX) {
-    G.timeouts++;
-    const dist = Math.hypot(b.x - b.from.x, b.y - b.from.y);
-    finish(d, 'hit', { runs: runsFor(dist), out: false, how: 'fielded', by: null, dist, timeout: true });
-  }
-}
-// the ball reached the bricks without being hit: it either knocks them over or carries on into the drum
-function passStumps(d) {
-  const b = ballAt(d, d.tStumps);
-  // judged on its line at the bricks, after any movement
-  if (Math.abs(b.y - PITCH_Y) <= BOWLED_HALF) {
-    G.stumps = { down: true, t: d.tStumps, seed: d.n };
-    sfx('bricks');
-    G.ball = { x: b.x, y: b.y, z: b.z, vx: -1.4, vy: (b.y - PITCH_Y) * 3, vz: 1.2 };
-    return finish(d, 'bowled');
-  }
-  // there is no keeper: it skips on and thuds into the oil drum behind the stumps
-  const ty = clamp(b.y, BACKSTOP.y - BACKSTOP.r * .6, BACKSTOP.y + BACKSTOP.r * .6);
-  const dx = BACKSTOP.x - b.x, dy = ty - b.y, n = Math.hypot(dx, dy), v = d.v2 * .8;
-  G.ball = { x: b.x, y: b.y, z: b.z, vx: dx / n * v, vy: dy / n * v, vz: Math.max(b.vz, .8) };
-  sfx('wall', .5);
-  finish(d, 'backstop');
-}
-/* settle the ball. outcome = { runs, out, how } where how is 'wall' or 'chalk' (4 or 6), 'fielded' (0 to 3, with
-   by and dist), 'caught' (out, with by), 'over the wall' (out), 'bowled' (out), or 'beaten' (missed or left, into
-   the drum, no run) */
-const OUTCOME_TEXT = o => o.dropped ? 'dropped! ' + (o.runs ? o.runs + (o.runs > 1 ? ' runs' : ' run') : 'no run') : o.how === 'bowled' || o.how === 'caught' ? o.how : o.how === 'over the wall' ? 'over the wall, out' : o.runs === 4 ? 'four' : o.runs === 6 ? 'six' : o.runs ? o.runs + (o.runs > 1 ? ' runs' : ' run') : 'no run';
-function finish(d, result, outcome) {
-  d.stage = 'done';
-  d.timer = DONE_T;
-  const sw = d.swing;
-  G.last = {
-    n: d.n, type: d.type, line: d.line, move: d.move, amount: d.amount, pitch: { ...d.P }, end: d.end,
-    dir: sw ? DIRS[sw.dir] : null, grade: sw ? GRADES[sw.grade] : null, side: sw ? sw.side : null,
-    dt: sw ? sw.dt : null, against: sw ? sw.against : false, result,
-  };
-  const b = G.ball;
-  if (result === 'hit') Object.assign(G.last, { shot: d.shot, cross: d.cross, edge: d.edge, touched: b.event ? b.event.touched : b.touched, bounces: b.bounces, at: { x: b.x, y: b.y, z: b.z }, t: b.t });
-  const o = outcome || (result === 'bowled' ? { runs: 0, out: true, how: 'bowled' } : { runs: 0, out: false, how: 'beaten' });
-  Object.assign(G.last, o, { field: G.field });
-  G.history.push(G.last);
-  G.react = o.out ? { kind: 'wicket', t0: G.time } : o.runs >= 4 ? { kind: 'boundary', t0: G.time } : null;
-  if (G.react) sfx(o.out ? 'groan' : 'cheer');
-  setStatus((result === 'hit' && d.edge ? 'edged! ' : '') + OUTCOME_TEXT(o));
-  scoreBall(o);
-  // the ball that decides the match: the winners start celebrating now, as the result goes up
-  if (G.match && G.match.result && !G.cele) startCelebration();
-}
+import { nodes, setStatus, setTouchInput, showHint, touchInput } from './game/hud.js';
+import { nextType, range, reseed, rng, walkPose } from './game/rng.js';
+import {
+  angMix, ARM_LEN, armAt, bodyFrame, drawBody, ik, keyed, mixBody, poseBody, SHIN, THIGH, vAdd, vCross, vDot,
+  vLen, vMix, vMul, vNorm, vSub,
+} from './game/figures.js';
+import { bowlerAt, footAt, gaitBody, reachZ, strideLen } from './game/bowler.js';
+import { ballAt, bowl, strike, swingAt } from './game/delivery.js';
+import { stepBall } from './game/ball.js';
+import { passStumps, RUN_POSE, stepLive, team } from './game/fielding.js';
 
 /* ---------- the match ----------
    Every ball counts (there are no extras). The chase is won as soon as the runs reach the target; it is lost when
@@ -663,7 +51,7 @@ function newMatch(target) {
   renderHud();
 }
 const ballMark = o => o.out ? 'W' : o.runs ? String(o.runs) : '·';
-function scoreBall(o) {
+export function scoreBall(o) {
   const m = G.match;
   if (!m || m.result) return;
   m.runs += o.runs; m.wkts += o.out ? 1 : 0; m.balls++;
@@ -760,10 +148,10 @@ function resetDelivery() {
   setField(fieldFor(0), true);
 }
 // the placing for an over, and the one the next ball will be bowled to
-const fieldFor = over => G.forceField || G.fieldOrder[over % G.fieldOrder.length];
+export const fieldFor = over => G.forceField || G.fieldOrder[over % G.fieldOrder.length];
 const nextField = () => fieldFor(G.ballInOver >= 6 ? G.over + 1 : G.over);
 // send the fielders to a placing (snap puts them straight there)
-function setField(name, snap) {
+export function setField(name, snap) {
   G.field = name;
   FIELDS[name].forEach((s, k) => {
     const f = G.fielders[k];
@@ -1250,7 +638,7 @@ function batterCeleAt(A, t) {
 }
 
 // the deciding ball has just been settled: plan everyone's celebration from where they are now
-function startCelebration() {
+export function startCelebration() {
   const d = G.del, t0 = G.time, bw = G.bowler, C = G.cele = { kind: G.match.result, t0 };
   const s = d.t0 == null ? Infinity : t0 - d.t0, following = s < d.runT + .4;
   C.bowlerT0 = following ? d.t0 + d.runT + .4 : t0;
@@ -1265,9 +653,9 @@ function startCelebration() {
 /* ---------- feedback ----------
    Sparks off the bat for a timed shot, a puff of dust for a mistimed one and where the ball thumps a house front.
    Each bit is a single pixel thrown out from the spot under gravity, gone in a fraction of a second. */
-const SPARK = [rgb(255, 240, 170), rgb(255, 214, 10), rgb(255, 255, 255)];
-const DUST = [rgb(214, 200, 176), rgb(190, 176, 152), rgb(232, 222, 204)];
-function burst(at, n, colors, speed, up, life) {
+export const SPARK = [rgb(255, 240, 170), rgb(255, 214, 10), rgb(255, 255, 255)];
+export const DUST = [rgb(214, 200, 176), rgb(190, 176, 152), rgb(232, 222, 204)];
+export function burst(at, n, colors, speed, up, life) {
   for (let i = 0; i < n; i++) {
     const a = i / n * 6.283 + hash(i, G.balls) * .8, v = speed * (.5 + hash(G.balls, i) * .7);
     G.fx.push({ x: at.x, y: at.y, z: at.z, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vz: up * (.4 + hash(i + 7, G.balls)), t: 0, life: life * (.6 + hash(i, 3) * .5), c: colors[i % colors.length] });
@@ -1474,7 +862,7 @@ function shotBody(kind, C, E, phase, sweep) {
   }
   return { kind: 'bat', k, pelvis, hipYaw: hips, chestYaw: chest, lean, roll: kind.type === 'cut' || kind.type === 'late' ? .12 : 0, footL, footR, toeL, toeR };
 }
-const BAT_SWING = .11, BAT_THROUGH = .08, BAT_FINISH = .3, BAT_HOLD = .55, BAT_BACK = 1.05;
+export const BAT_SWING = .11, BAT_THROUGH = .08, BAT_FINISH = .3, BAT_HOLD = .55, BAT_BACK = 1.05;
 const BAT_COMMIT = .09, BODY_IN = .14;                            // he starts the bat down this long before the ball arrives
 // two bat keys: along the shot's arc when both are on it (so a finish can go right over the top), else the short way
 const mixBat = (a, b, u) => a.arc && a.arc === b.arc
@@ -1501,7 +889,7 @@ function waitingAt(t) {
   return mixState(rest, d.commit, u * .9);
 }
 // the whole batter at time t, in his own frame: { body, bat }; once the match is decided, his celebration
-const batterAt = t => G.batter.cele && t >= G.batter.cele.t0 ? batterCeleAt(G.batter.cele, t) : batterPlay(t);
+export const batterAt = t => G.batter.cele && t >= G.batter.cele.t0 ? batterCeleAt(G.batter.cele, t) : batterPlay(t);
 function batterPlay(t) {
   const sw = G.batter.swing;
   if (!sw || t < sw.t0) return waitingAt(t);
@@ -1528,7 +916,7 @@ function batterPlay(t) {
   return { bat: mixBat(fin, rest.bat, u), body: mixBody(bodyNow, rest.body, u) };
 }
 // plan the swing's arc when the button is pressed: the shot for the direction, and where it meets the ball
-function planSwing(sw, d) {
+export function planSwing(sw, d) {
   const C0 = sw.C, C = [C0.x, myY(C0.y), C0.z], dirC = mirrorDir(sw.dir), kind = SHOT_KIND[dirC];
   const w = DIR_WORLD[dirC], E = vNorm([w[0], w[1], 0]);
   const arc = shotArc(kind, E, C[2] < .75);
@@ -1990,7 +1378,7 @@ function sfxStrike(out, at, freq, q, decay, level, attack = .002, lp = 2500) {
 // the audition played louder than the game. The hit goes through one gain of this much, which brings a perfect hit's
 // peak down to about 0.4 without changing its shape (scaling the levels inside would: their decays end at a fixed floor)
 const HIT_LEVEL = .66;
-function sfx(kind, amount = 1) {
+export function sfx(kind, amount = 1) {
   if (!audio || muted || audio.state !== 'running') return;
   const now = audio.currentTime + .005;
   if (kind === 'hit') {
