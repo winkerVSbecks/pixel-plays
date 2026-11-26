@@ -98,15 +98,15 @@ export const HudLose = {
    teams); otherwise a match has been played (your team picked, focus on Play), and midMatch adds the warning that
    Play starts a new match, and the way back */
 const welcomeArgTypes = {
+  ...timeArgTypes(4),
   difficulty: { control: { type: 'range', min: 1, max: 5, step: 1 }, description: 'The level the screen opens on', table: { category: 'Game' } },
   you: { control: 'select', options: teamIds, description: 'Your team, once one has been picked', table: { category: 'Match' } },
   visit: { control: 'inline-radio', options: ['first', 'after a match', 'mid-match'], table: { category: 'Match' } },
-  seed: { control: { type: 'number', min: 0, step: 1 }, table: { category: 'Time' } },
-  scale: { control: { type: 'range', min: 1, max: 3, step: 1 }, table: { category: 'View' } },
 };
 function renderWelcome(a) {
   if (picker.open) picker.close();
-  const root = stage({ seed: a.seed, difficulty: a.difficulty, bowl: false, you: a.you }, { ...timeArgs, scale: a.scale, time: 0 }, { label: 'The lane behind the welcome screen' });
+  // (time and play move the lane behind it: the wind in the trees and the batter's tap)
+  const root = stage({ seed: a.seed, difficulty: a.difficulty, bowl: false, you: a.you }, a, { label: 'The lane behind the welcome screen' });
   setDifficulty(a.difficulty);
   setTeams(a.you, TEAMS.find(t => t.id !== a.you).id);
   if (a.visit === 'first') delete picker.dataset.picked;
@@ -118,7 +118,7 @@ function renderWelcome(a) {
   queueMicrotask(() => { if (root.isConnected) openPicker(); else requestAnimationFrame(() => openPicker()); });
   return root;
 }
-const WELCOME_DEFAULTS = { difficulty: 1, you: TEAMS[0].id, visit: 'first', seed: 1, scale: 2 };
+const WELCOME_DEFAULTS = { ...timeArgs, difficulty: 1, you: TEAMS[0].id, visit: 'first' };
 export const Welcome = { name: 'Welcome screen', args: WELCOME_DEFAULTS, argTypes: welcomeArgTypes, render: renderWelcome };
 export const WelcomeAgain = { name: 'Welcome screen, after a match', args: { ...WELCOME_DEFAULTS, visit: 'after a match', difficulty: 3, you: TEAMS[4].id }, argTypes: welcomeArgTypes, render: renderWelcome };
 export const WelcomeMidMatch = { name: 'Welcome screen, mid-match', args: { ...WELCOME_DEFAULTS, visit: 'mid-match', difficulty: 5, you: TEAMS[2].id }, argTypes: welcomeArgTypes, render: renderWelcome };
