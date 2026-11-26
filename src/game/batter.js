@@ -18,7 +18,9 @@ import { batterCeleAt } from './celebration.js';
    Waiting: side-on, bat grounded by the back foot and tapping. As the bowler lets go: backlift over the right
    shoulder. A swing: from the backlift the bat comes down the shot's own arc, through the point where it really
    meets the ball (wherever that is, a late hit included) at the moment the ball leaves it, and on to a finish
-   that points where the ball goes, high for a lofted hit and low for a ground shot; then he settles back.
+   that points where the ball goes; then he settles back. The shot type shows in it: a lofted (air) shot gets under
+   the ball, the bat coming up from lower, and he leans back into a high finish with the hands over his head; a
+   ground shot keeps his head over the ball and checks the bat low along the ball's way.
    Each shot is an arc: at contact the bat lies along Dc and its toe moves along vc (towards the ball's way), so
    before contact the toe is always on the far side and after it the bat follows the ball. */
 export const BAT = { len: 1.4, handle: .3, blade: .3, half: .085, r: .115, sweet: 1.02, top: .05, bottom: .19 };
@@ -74,7 +76,7 @@ function standBody(lift, tap) {
   const bat = { G: vMix(gS, gB, lift), D: slerp(dS, dB, lift), N: slerp([-1, 0, 0], vNorm([-.2, -1, 0]), lift) };
   return { body, bat };
 }
-function shotBody(kind, C, E, phase, sweep) {
+function shotBody(kind, C, E, phase, sweep, loft) {
   const x = BAT_C.x, y = BAT_C.y, k = FIG_SCALE, front = kind.type === 'drive' || kind.type === 'glance' && E[0] < 0 || sweep;
   const reachX = clamp(C.x + (front ? .55 : .9), CREASE_X + .18, x - .1);  // a front foot towards the ball, never out of the crease
   const chest = SIDE_ON + kind.chest[phase], hips = SIDE_ON + .12 + (kind.chest[phase] - .12) * .6;
@@ -90,6 +92,8 @@ function shotBody(kind, C, E, phase, sweep) {
     footR = [x + .38, y - .2, .12]; footL = [x - .22, y - .05, .12];
     pelvis = [x + .1, y - .12, 1.14 * k]; lean = kind.type === 'pull' ? .15 : .3;
   }
+  // lofted: a touch lower at the ball and leaning back through it; along the ground: over the ball to the finish
+  if (loft) { lean -= phase ? .16 : .06; pelvis[2] -= phase ? 0 : .04 * k; } else if (loft === false && phase) lean += .08;
   return { kind: 'bat', k, pelvis, hipYaw: hips, chestYaw: chest, lean, roll: kind.type === 'cut' || kind.type === 'late' ? .12 : 0, footL, footR, toeL, toeR };
 }
 export const BAT_SWING = .11, BAT_THROUGH = .08, BAT_FINISH = .3, BAT_HOLD = .55, BAT_BACK = 1.05;
@@ -124,16 +128,22 @@ export function batterPlay(t) {
   const sw = G.batter.swing;
   if (!sw || t < sw.t0) return waitingAt(t);
   const s = t - sw.t0, tc = sw.tc - sw.t0, from = sw.from, kind = SHOT_KIND[sw.dirC], E = sw.E, gC = sw.gC, vc = sw.arc.vc;
+  // (loft: true for a lofted shot, false for a ground shot, undefined for the waiting check; see planSwing)
+  const loft = sw.loft, glance = kind.type === 'glance';
   // from wherever the bat was at the press: round the shot's arc (less of it when there is less time), through the
   // ball at the moment it leaves the bat, on through, and up (or along) to the finish; then back to waiting
   const reach = clamp(tc / BAT_SWING, .35, 1);
-  const pre = arcBat(sw, -1.15 * reach, vAdd(vAdd(gC, vMul(vc, -.5 * reach)), [0, 0, .3 * reach]));
+  const pre = arcBat(sw, -1.15 * reach, vAdd(vAdd(gC, vMul(vc, -.5 * reach)), [0, 0, (loft ? .05 : .3) * reach]));
   const con = arcBat(sw, 0, gC);
-  const thr = arcBat(sw, .9, vAdd(vAdd(gC, vMul(vc, .45)), [0, 0, .25]));
+  const thr = arcBat(sw, .9, vAdd(vAdd(gC, vMul(vc, .45)), [0, 0, loft ? .45 : .25]));
   const sh = vMix(sw.frame.shL, sw.frame.shR, .5);
-  const high = sw.high && kind.type !== 'glance';
-  const fin = arcBat(sw, high ? 3.3 : 1.5, high ? vAdd(vAdd(sh, vMul(E, .25)), [0, 0, .3]) : vAdd(vAdd(gC, vMul(vc, .7)), [0, 0, .4]));
-  const bodyC = shotBody(kind, sw.C, E, 0, sw.arc.sweep), bodyF = shotBody(kind, sw.C, E, 1, sw.arc.sweep);
+  // the finish: right over the top and the hands above his head (lofted), half way up for a flicked glance, or low
+  // and checked along the line (ground; a mistimed or missed swing still follows through high, as sw.high says)
+  const high = sw.high && !glance;
+  const fin = high ? arcBat(sw, loft ? 3.5 : 3.3, vAdd(vAdd(sh, vMul(E, loft ? .15 : .25)), [0, 0, loft ? .5 : .3]))
+    : loft && glance ? arcBat(sw, 2.2, vAdd(vAdd(gC, vMul(vc, .5)), [0, 0, .7]))
+    : arcBat(sw, loft === false ? 1.1 : 1.5, vAdd(vAdd(gC, vMul(vc, .7)), [0, 0, loft === false ? .15 : .4]));
+  const bodyC = shotBody(kind, sw.C, E, 0, sw.arc.sweep, loft), bodyF = shotBody(kind, sw.C, E, 1, sw.arc.sweep, loft);
   // the body steps into the shot over at least BODY_IN, even when the bat gets there sooner, then turns through
   const tIn = Math.max(tc, BODY_IN), bodyNow = s <= tIn ? mixBody(from.body, bodyC, ease(s / tIn)) : s <= tIn + BAT_FINISH ? mixBody(bodyC, bodyF, ease((s - tIn) / BAT_FINISH)) : bodyF;
   const tPre = Math.min(tc * .55, BAT_SWING * .6);
@@ -168,7 +178,9 @@ export function planSwing(sw, d) {
   sw.dirC = dirC; sw.E = E; sw.C = { x: C[0], y: C[1], z: C[2] }; sw.frame = frame;
   sw.arc = { Dc, vc: arc.vc, Nc: vt, axis, sweep: arc.sweep };
   sw.gC = vSub(C, vMul(Dc, BAT.sweet * FIG_SCALE));
-  sw.high = sw.grade === 3 || sw.grade === 0 || sw.grade === 2;  // lofted perfect, looping mistimed, and air shots finish high
+  // a lofted shot, a looping mistimed one and a swing that misses all finish high; a ground shot met well, low
+  sw.loft = sw.shotType ? sw.shotType === 'air' : undefined;
+  sw.high = sw.grade === 3 || sw.grade === 2 || sw.grade < 2 && sw.loft === true;
 }
 /* the final batter at time t: both hands on the handle, and both within reach. If the bat is out of reach the body
    leans to it first (the hips shift, the feet stay; the legs bend to suit), and only what is left moves the bat */
