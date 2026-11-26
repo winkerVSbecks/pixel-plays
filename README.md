@@ -1,6 +1,6 @@
 # Pixel Plays: Cricket
 
-Street cricket in a lane, shown as an isometric pixel diorama. Chase a target in 5 overs with 3 wickets and hit into the gaps between the fielders. It is one page of plain JavaScript with its own software rasteriser: no build step, no dependencies, no sprites or image assets.
+Street cricket in a lane, shown as an isometric pixel diorama. Chase a target in 5 overs with 3 wickets and hit into the gaps between the fielders. It is plain JavaScript modules with their own software rasteriser, bundled by Vite: no runtime dependencies, no sprites or image assets.
 
 **Play: https://pixel-plays-ruby.vercel.app/**
 
@@ -13,19 +13,27 @@ Concept by [abhi](https://x.com/awwbhi2) and Game by [AmirMushich](https://x.com
 - **Rules** (top right) explains scoring and how you get out. **change team** picks a new side; **sound on/off** mutes the music and effects.
 
 ## Run
-Requires [Node.js](https://nodejs.org/); nothing to install.
+Requires [Node.js](https://nodejs.org/) 20.19+ or 22.12+.
 
 ```bash
-node serve.mjs
+npm install
+npm run dev              # the game, with reload on save
+npm run build            # bundle the game into dist/
+npm run preview          # serve dist/ as it will be deployed
+npm run storybook        # parts of the game in Storybook, at http://localhost:6006/
+npm run build-storybook  # a static Storybook in storybook-static/
 ```
 
-Then open http://127.0.0.1:5300/. Any static file server works, and the site deploys as plain static files.
+Vercel runs `npm run build` and serves `dist/` (see `vercel.json`). Old `/cricket/` links redirect to `/`.
 
 ## Files
-- `index.html` is the game: its own `groundColor`, `bake`, `update` and `draw`, plus the HUD and team picker.
-- `shell.js` provides the Rules popup, the credits and the background music.
-- `engine.js` provides the camera, depth buffer, colour ramps, shadows, edges, figures, trees and wind as globals.
-- `cricket.mp3` is the background track.
+- `index.html` is the page: the canvas, the HUD and the team picker's markup and styles. It loads `src/main.js`.
+- `src/main.js` mounts the page chrome (`src/page.js`, using `src/shell.js`: the Rules and About popups, the credits and the music), then starts the game.
+- `src/engine.js` is the renderer: camera, depth buffer, colour ramps, shadows, edges, figures, trees and wind. `createTarget(canvas)` gives a canvas its own buffers and `useTarget(target)` draws to it, so several canvases can each show a scene.
+- `src/game.js` boots the game: the pause rule, the frame loop and the test controls on `window.__cricket` (freeze, seed, step, advance and more).
+- `src/game/` holds the game's parts as modules: `constants` (layout, bowling, teams, fields), `scene` (the baked lane), `state` (`G`), `rng` (the seeded mulberry32 sequence), `figures`, `bowler`, `delivery`, `ball`, `fielding`, `match`, `celebration`, `batter`, `fx`, `update` (one step of `dt` seconds), `draw`, `hud`, `input`, `sound` and `picker`.
+- `src/stories/` holds the Storybook stories; `Scene/Ground` draws the empty lane.
+- `public/cricket.mp3` is the background track, copied into the build as it is.
 
 ## Visual rules
 - One small place floating on pure white, with no UI chrome around it.

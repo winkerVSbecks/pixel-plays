@@ -1,4 +1,7 @@
 {
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "trailingSlash": true,
   "redirects": [
     { "source": "/cricket/:path*", "destination": "/", "permanent": true }
