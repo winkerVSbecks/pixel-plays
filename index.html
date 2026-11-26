@@ -2361,7 +2361,7 @@ function drawSignal(fill) {
   drawDots(ink, INK);
   drawDots(fill, SIGNAL);
 }
-/* the landing marker: Tie-Break's target ring on the pitching spot. If the ball will move off the pitch, a
+/* the landing marker: a target ring on the pitching spot. If the ball will move off the pitch, a
    wedge on the ring's rim points the way it will go, longer for more movement (about 4 px for the smallest swing to
    10 px for the biggest turn), since that is how much hitting across it costs (see CROSS); a ball that holds its
    line has none */
@@ -2574,7 +2574,7 @@ addEventListener('pointermove', e => { if (e.pointerType === 'mouse' && touchInp
 addEventListener('keydown', () => { if (touchInput) { touchInput = false; showHint(true); } }, true);
 
 /* ---------- sound ----------
-   Web Audio, as in Tie-Break: short oscillator blips and filtered noise, no files. The context starts on the first
+   Web Audio: short oscillator blips and filtered noise, no files. The context starts on the first
    press or key (browsers only allow sound after a gesture); headless and muted play stays silent */
 let muted = false, audio = null, noiseBuf = null;
 function ensureAudio() {
