@@ -1,32 +1,40 @@
-'use strict';
-// Shared pixel renderer for every game: orthographic camera, depth buffer, ramps, shadows, edges and wind.
-// A game sets window.PP_SCENE before loading this file, then draws through these globals.
-const SCENE = window.PP_SCENE || {};
-const W = 360, H = 280, S = 10;
-const SIN = 0.5, COS = Math.sqrt(3) / 2, R2 = Math.SQRT2;
-const OX = W / 2, OY = H / 2 + (SCENE.originY || 0);
-const SHADOW_X = SCENE.shadowX == null ? 1.3 : SCENE.shadowX, SHADOW_Y = SCENE.shadowY == null ? -.12 : SCENE.shadowY;
-const canvas = document.getElementById('c');
-canvas.width = W; canvas.height = H;
-const ctx = canvas.getContext('2d');
-const image = ctx.createImageData(W, H);
-const pix = new Uint32Array(image.data.buffer);
-const zb = new Float32Array(W * H);
-const bakedPix = new Uint32Array(W * H);
-const bakedZ = new Float32Array(W * H);
-const ground = new Uint8Array(W * H);
-const shadowMask = new Uint8Array(W * H);
-const groundZ = new Float32Array(W * H);
-const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + .5) / 16);
-const COOL = [46, 38, 84], WARM = [255, 232, 180];
-const SHOE = [226, 222, 212], BARK = [92, 74, 60];
-const GRASS = [[34, 62, 50], [52, 88, 52], [82, 118, 54], [124, 146, 62], [168, 172, 76]];
-const GRADIENT_Y = COS / (S * SIN), EDGE = .28;
+// The pixel renderer: orthographic camera, depth buffer, ramps, shadows, edges and wind.
+// Draw calls work on the current render target. createTarget(canvas) makes one for a canvas, and useTarget(target)
+// makes it current, so several canvases (a game, or one per story) each keep their own buffers and baked scene.
+// The camera and shadow direction are the lane's: originY 17, shadows .9 / -.6.
+export const SCENE = { originY: 17, shadowX: .9, shadowY: -.6 };
+export const W = 360, H = 280, S = 10;
+export const SIN = 0.5, COS = Math.sqrt(3) / 2, R2 = Math.SQRT2;
+export const OX = W / 2, OY = H / 2 + SCENE.originY;
+export const SHADOW_X = SCENE.shadowX, SHADOW_Y = SCENE.shadowY;
 
-const rgb = (r, g, b) => (255 << 24 | Math.min(255, b | 0) << 16 | Math.min(255, g | 0) << 8 | Math.min(255, r | 0)) >>> 0;
+// the current target's canvas and buffers. Importers see these change when useTarget is called (live bindings)
+export let canvas, ctx, image, pix, zb, bakedPix, bakedZ, ground, shadowMask, groundZ, kinds, staticShadow, tufts, leaves;
+export function createTarget(target) {
+  target.width = W; target.height = H;
+  const context = target.getContext('2d');
+  const img = context.createImageData(W, H);
+  return {
+    canvas: target, ctx: context, image: img, pix: new Uint32Array(img.data.buffer), zb: new Float32Array(W * H),
+    bakedPix: new Uint32Array(W * H), bakedZ: new Float32Array(W * H), ground: new Uint8Array(W * H),
+    shadowMask: new Uint8Array(W * H), groundZ: new Float32Array(W * H), kinds: new Uint8Array(W * H),
+    staticShadow: new Uint8Array(W * H), tufts: [], leaves: [],
+  };
+}
+export function useTarget(t) {
+  ({ canvas, ctx, image, pix, zb, bakedPix, bakedZ, ground, shadowMask, groundZ, kinds, staticShadow, tufts, leaves } = t);
+  return t;
+}
+export const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + .5) / 16);
+export const COOL = [46, 38, 84], WARM = [255, 232, 180];
+export const SHOE = [226, 222, 212], BARK = [92, 74, 60];
+export const GRASS = [[34, 62, 50], [52, 88, 52], [82, 118, 54], [124, 146, 62], [168, 172, 76]];
+export const GRADIENT_Y = COS / (S * SIN), EDGE = .28;
+
+export const rgb = (r, g, b) => (255 << 24 | Math.min(255, b | 0) << 16 | Math.min(255, g | 0) << 8 | Math.min(255, r | 0)) >>> 0;
 // hue-shifted ramp: shadows drift to violet, lights drift to warm yellow
-const ramps = new WeakMap();
-function rampOf(c) {
+export const ramps = new WeakMap();
+export function rampOf(c) {
   let ramp = ramps.get(c);
   if (ramp) return ramp;
   const mix = (m, tint, k) => rgb(lerp(c[0] * m, tint[0], k), lerp(c[1] * m, tint[1], k), lerp(c[2] * m, tint[2], k));
@@ -34,33 +42,34 @@ function rampOf(c) {
   ramps.set(c, ramp);
   return ramp;
 }
-const bayerAt = (ix, iy) => BAYER[(iy & 3) * 4 + (ix & 3)];
-function tint(i, r, g, b) {
+export const bayerAt = (ix, iy) => BAYER[(iy & 3) * 4 + (ix & 3)];
+export function tint(i, r, g, b) {
   const c = pix[i];
   pix[i] = rgb((c & 255) * r, (c >> 8 & 255) * g, (c >> 16 & 255) * b);
 }
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const lerp = (a, b, t) => a + (b - a) * t;
-const ease = t => t * t * (3 - 2 * t);
-function hash(x, y) {
+export const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+export const lerp = (a, b, t) => a + (b - a) * t;
+export const ease = t => t * t * (3 - 2 * t);
+export function hash(x, y) {
   const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
   return s - Math.floor(s);
 }
-function noise(x, y) {
+export function noise(x, y) {
   const ix = Math.floor(x), iy = Math.floor(y), fx = ease(x - ix), fy = ease(y - iy);
   return lerp(lerp(hash(ix, iy), hash(ix + 1, iy), fx), lerp(hash(ix, iy + 1), hash(ix + 1, iy + 1), fx), fy);
 }
-function project(x, y, z) {
+export function project(x, y, z) {
   const u = (x - y) / R2, v = (x + y) / R2;
   return { sx: OX + u * S, sy: OY + (v * SIN - z * COS) * S, d: v * COS + z * SIN };
 }
-function unproject(sx, sy) {
+export function unproject(sx, sy) {
   const u = (sx - OX) / S, v = (sy - OY) / (S * SIN);
   return { x: (u + v) / R2, y: (v - u) / R2 };
 }
 
-let capture = null; // when set, sphere() records pixels instead of drawing them
-function sphere(x, y, z, r, c, mode) {
+export let capture = null; // when set, sphere() records pixels instead of drawing them
+export function setCapture(list) { capture = list; }
+export function sphere(x, y, z, r, c, mode) {
   const ramp = rampOf(c);
   const p = project(x, y, z), rp = Math.max(r * S, .75);
   const y0 = Math.max(0, Math.floor(p.sy - rp)), y1 = Math.min(H - 1, Math.ceil(p.sy + rp));
@@ -84,7 +93,7 @@ function sphere(x, y, z, r, c, mode) {
     pix[i] = ramp[clamp(Math.floor(l * 4.4 + .2 + (bayerAt(ix, iy) - .5) * .7), 0, 4)];
   }
 }
-function capsule(a, b, r0, r1, colorOf, mode) {
+export function capsule(a, b, r0, r1, colorOf, mode) {
   const len = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
   const n = Math.max(1, Math.ceil(len / (Math.min(r0, r1) * .45)));
   for (let k = 0; k <= n; k++) {
@@ -92,7 +101,7 @@ function capsule(a, b, r0, r1, colorOf, mode) {
     sphere(lerp(a[0], b[0], t), lerp(a[1], b[1], t), z, lerp(r0, r1, t), colorOf(z), mode);
   }
 }
-function box(x0, y0, z0, x1, y1, z1, c, seed = 0) {
+export function box(x0, y0, z0, x1, y1, z1, c, seed = 0) {
   const ramp = rampOf(c);
   const paint = (x, y, z, base, grain) => {
     const p = project(x, y, z), ix = p.sx | 0, iy = p.sy | 0;
@@ -109,7 +118,7 @@ function box(x0, y0, z0, x1, y1, z1, c, seed = 0) {
   for (let a = x0; a <= x1; a += step) for (let b = z0; b <= z1; b += step) paint(a, y1, b, 2.3, noise(a * .8 + seed, b * 9));
   for (let a = y0; a <= y1; a += step) for (let b = z0; b <= z1; b += step) paint(x1, a, b, 1.2, noise(a * .8 + seed, b * 9));
 }
-function castShadow(x, y, z, r, strength = 1, dither = .4) {
+export function castShadow(x, y, z, r, strength = 1, dither = .4) {
   const p = project(x + SHADOW_X * z, y + SHADOW_Y * z, 0);
   const rx = r * S * 1.05, ry = rx * SIN + 1;
   const y0 = Math.max(0, Math.floor(p.sy - ry)), y1 = Math.min(H - 1, Math.ceil(p.sy + ry));
@@ -121,7 +130,7 @@ function castShadow(x, y, z, r, strength = 1, dither = .4) {
     if (shadowMask[i] < strength) shadowMask[i] = strength;
   }
 }
-function applyShadows(refZ) {
+export function applyShadows(refZ) {
   for (let i = 0; i < pix.length; i++) {
     const s = shadowMask[i];
     if (!s) continue;
@@ -133,7 +142,7 @@ function applyShadows(refZ) {
 }
 // pixel-art edges from the depth buffer. The ground is never touched, so nothing halos around a figure:
 // an object darkens its own silhouette against the ground, and gets a warm rim only over another object
-function shadeEdges() {
+export function shadeEdges() {
   for (let iy = 1; iy < H - 1; iy++) for (let ix = 1; ix < W - 1; ix++) {
     const i = iy * W + ix, d = zb[i];
     if (d < -1e8 || d === groundZ[i]) continue;
@@ -149,15 +158,12 @@ function shadeEdges() {
   }
 }
 
-const KIND_NONE = 0, KIND_GRASS = 3;
-const kinds = new Uint8Array(W * H);
+export const KIND_NONE = 0, KIND_GRASS = 3;
 /* ---------- wind ---------- */
-const WIND_FPS = 8; // stepped on purpose: the sway should feel hand-animated, not simulated
-const STILL = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const tufts = [], leaves = [];
-const staticShadow = new Uint8Array(W * H);
-const tuftLit = GRASS.map(c => rgb(...c)), tuftDark = GRASS.map(c => rgb(c[0] * .54, c[1] * .52, c[2] * .72));
-function growGrass() {
+export const WIND_FPS = 8; // stepped on purpose: the sway should feel hand-animated, not simulated
+export const STILL = matchMedia('(prefers-reduced-motion: reduce)').matches;
+export const tuftLit = GRASS.map(c => rgb(...c)), tuftDark = GRASS.map(c => rgb(c[0] * .54, c[1] * .52, c[2] * .72));
+export function growGrass() {
   for (let iy = 3; iy < H; iy++) for (let ix = 0; ix < W; ix++) {
     const i = iy * W + ix;
     if (kinds[i] !== KIND_GRASS || hash(ix * 3, iy * 5) > .17) continue;
@@ -169,7 +175,7 @@ function growGrass() {
     });
   }
 }
-function drawTufts(t) {
+export function drawTufts(t) {
   for (const tuft of tufts) {
     const gust = Math.sin(t * .8 + tuft.phase) + .5 * Math.sin(t * 2.1 + tuft.phase * 2.3);
     const colors = staticShadow[tuft.i] ? tuftDark : tuftLit;
@@ -182,7 +188,7 @@ function drawTufts(t) {
     }
   }
 }
-function drawLeaves(t) {
+export function drawLeaves(t) {
   for (const leaf of leaves) {
     const reach = clamp((leaf.z - 2.5) / 3, .3, 1);
     const swayX = (Math.sin(t * .9 + leaf.x * .5 + leaf.z * .7) + .55 * Math.sin(t * 2.3 + leaf.k * 1.7)) * reach;
@@ -199,7 +205,7 @@ function drawLeaves(t) {
     if (leaf.k % 2 === 0) castShadow(leaf.x + swayX * .12, leaf.y, leaf.z, leaf.r);
   }
 }
-function bakeOcclusion() {
+export function bakeOcclusion() {
   const offsets = [];
   for (const r of [2, 4]) for (let k = 0; k < 8; k++) {
     offsets.push([Math.round(Math.cos(k * Math.PI / 4) * r), Math.round(Math.sin(k * Math.PI / 4) * r * .7)]);
@@ -217,7 +223,7 @@ function bakeOcclusion() {
     else if (hits / 8 > bayerAt(ix, iy)) tint(i, .74, .72, .84);
   }
 }
-function plot(x, y, z, color) {
+export function plot(x, y, z, color) {
   const p = project(x, y, z), ix = p.sx | 0, iy = p.sy | 0;
   if (ix < 0 || iy < 0 || ix >= W || iy >= H) return;
   const i = iy * W + ix;
@@ -226,9 +232,9 @@ function plot(x, y, z, color) {
   pix[i] = color;
 }
 // a gnarled trunk, then a dark core under silver-green leaf clusters that sway in drawLeaves
-const CROWN = [[.1, 0, 3.7, 1.6], [-1.4, -.7, 3.3, 1.2], [1.6, .7, 3.4, 1.25], [-.6, 1.1, 3.9, 1.1], [.9, -1.1, 4, 1.1], [.2, .1, 4.9, 1.05]];
-const LEAF_DEEP = [58, 84, 62], LEAF_MID = [100, 126, 78], LEAF_SILVER = [146, 162, 112];
-function growTree(x, y, scale = 1, count = 420, seed = 0) {
+export const CROWN = [[.1, 0, 3.7, 1.6], [-1.4, -.7, 3.3, 1.2], [1.6, .7, 3.4, 1.25], [-.6, 1.1, 3.9, 1.1], [.9, -1.1, 4, 1.1], [.2, .1, 4.9, 1.05]];
+export const LEAF_DEEP = [58, 84, 62], LEAF_MID = [100, 126, 78], LEAF_SILVER = [146, 162, 112];
+export function growTree(x, y, scale = 1, count = 420, seed = 0) {
   const bark = () => BARK;
   capsule([x, y, 0], [x + .3 * scale, y + .1 * scale, 2.2 * scale], .36 * scale, .22 * scale, bark, 'rough');
   capsule([x + .3 * scale, y + .1 * scale, 2.2 * scale], [x - .8 * scale, y - .4 * scale, 3.3 * scale], .2 * scale, .13 * scale, bark, 'rough');
@@ -245,7 +251,7 @@ function growTree(x, y, scale = 1, count = 420, seed = 0) {
     capture = null;
   }
 }
-function figure(px, py, yaw, pose, palette, addBone) {
+export function figure(px, py, yaw, pose, palette, addBone) {
   const fx = Math.cos(yaw), fy = Math.sin(yaw), sx = -fy, sy = fx, base = pose.z || 0, k = pose.scale || 1;
   const P = (a, b, c) => [px + (fx * a + sx * b) * k, py + (fy * a + sy * b) * k, c * k + base];
   const add = (a, b, r0, r1, f) => addBone(a, b, r0 * k, r1 * k, f);
@@ -280,10 +286,10 @@ function figure(px, py, yaw, pose, palette, addBone) {
   add(shL, elbowL, .12, .1, shirt); add(elbowL, handL, .09, .08, skin);
   return handR;
 }
-function sphere2(add, c, r, color) { add(c, c, r, r, () => color); }
-const dynamicAdd = (a, b, r0, r1, f) => { capsule(a, b, r0, r1, f, 'solid'); pendingShadows.push(a, r0, b, r1); };
-const pendingShadows = [];
-function flushShadows() {
+export function sphere2(add, c, r, color) { add(c, c, r, r, () => color); }
+export const dynamicAdd = (a, b, r0, r1, f) => { capsule(a, b, r0, r1, f, 'solid'); pendingShadows.push(a, r0, b, r1); };
+export const pendingShadows = [];
+export function flushShadows() {
   for (let i = 0; i < pendingShadows.length; i += 4) {
     const a = pendingShadows[i], ra = pendingShadows[i + 1], c = pendingShadows[i + 2];
     const n = Math.max(1, Math.ceil(Math.hypot(c[0] - a[0], c[1] - a[1], c[2] - a[2]) / .25));
@@ -294,13 +300,13 @@ function flushShadows() {
     if (a[2] < .25) castShadow(a[0], a[1], 0, .2, 2, 0); // contact under the feet
   }
 }
-function drawDots(points, color) {
+export function drawDots(points, color) {
   for (const [sx, sy] of points) {
     const ix = sx | 0, iy = sy | 0;
     if (ix >= 0 && iy >= 0 && ix < W && iy < H) pix[iy * W + ix] = color;
   }
 }
-const ARROW = [
+export const ARROW = [
   '....ooooo....',
   '....oXXXo....',
   '....oXXXo....',
@@ -314,15 +320,15 @@ const ARROW = [
   '.....oXo.....',
   '......o......',
 ];
-const INK = rgb(28, 27, 25), SIGNAL = rgb(255, 214, 10), PAPER = rgb(255, 255, 255);
+export const INK = rgb(28, 27, 25), SIGNAL = rgb(255, 214, 10), PAPER = rgb(255, 255, 255);
 // signals get a white halo, so they separate from whatever busy detail sits behind them
-function haloDots(points) {
+export function haloDots(points) {
   const halo = [];
   for (const [x, y] of points) for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) halo.push([x + dx, y + dy]);
   drawDots(halo, PAPER);
 }
 // a bobbing arrow whose tip points at (sx, sy)
-function drawArrow(sx, sy, time) {
+export function drawArrow(sx, sy, time) {
   const bob = STILL ? 0 : Math.floor(time * 3) % 2 * 2;
   const left = Math.round(sx) - 6, top = Math.round(sy) - ARROW.length - bob;
   const ink = [], fill = [];
@@ -334,7 +340,7 @@ function drawArrow(sx, sy, time) {
   drawDots(ink, INK);
   drawDots(fill, SIGNAL);
 }
-function fit() {
+export function fit() {
   const dpr = window.devicePixelRatio || 1;
   const fitScale = Math.min(innerWidth / W, (innerHeight - 40) / H);
   const scale = Math.max(1, Math.floor(fitScale * dpr)) / dpr;
