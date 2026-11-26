@@ -20,6 +20,7 @@ import { dirFromScreen, draw, roseCenter } from './game/draw.js';
 import { aimDir, heldArrows, heldDirKeys, keyDir, setHookAim, shotFor } from './game/input.js';
 import { audio, ensureAudio, muted, sfx } from './game/sound.js';
 import { chooseTeam, openPicker } from './game/picker.js';
+import { simulate } from './game/simulate.js';
 
 /* ---------- boot ---------- */
 addEventListener('resize', fit);
@@ -121,6 +122,9 @@ window.__cricket = {
   newMatch, replay, resultText, hidesView, clearWalk,
   match(patch) { if (patch) Object.assign(G.match, patch); renderHud(); return G.match; },
   MATCH: { OVERS, WICKETS, TARGET, REPLAY_T },
+  // simulate({ shot, balls, seed, timing, dir }): many seeded balls headless, tallied (see game/simulate.js), e.g.
+  // simulate({ shot: 'air', timing: 'perfect' }) against simulate({ shot: 'ground', timing: 'perfect' })
+  simulate,
   // sound: play one effect now (starts the audio context if the page allows it); audio() is its state, or null
   sound(kind, amount) { ensureAudio(); sfx(kind, amount); return audio && audio.state; },
   audio: () => audio && { state: audio.state, muted },
