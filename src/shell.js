@@ -9,7 +9,7 @@ const ABOUT = [
 const css = `
   .pp-link { font: inherit; color: #6b675f; background: none; border: 0; padding: 10px; margin: 0; cursor: pointer; }
   .pp-link:hover, .pp-link:focus-visible { color: #1c1b19; }
-  /* About (an info icon) and Rules share the top right corner, clear of the scores at the top left */
+  /* Rules, then About (an info icon) at the far right, share the top right corner, clear of the scores at the top left */
   #pp-top { position: fixed; top: max(4px, env(safe-area-inset-top)); right: max(6px, env(safe-area-inset-right)); z-index: 5; display: flex; align-items: center; }
   #pp-about-open { display: grid; place-items: center; padding: 10px; touch-action: manipulation; }
   #pp-about-open svg { display: block; width: 17px; height: 17px; }
@@ -54,7 +54,7 @@ export function mount({ title: heading, rules: ruleList, music }) {
 
   const top = document.createElement('div');
   top.id = 'pp-top';
-  top.append(aboutOpen, rulesOpen);
+  top.append(rulesOpen, aboutOpen);
 
   document.body.append(top, rules.dialog, about.dialog);
   startMusic(music);
