@@ -131,7 +131,4 @@ function startMusic(src) {
     if (document.hidden) music.pause();
     else if (started) start();
   });
-  PixelPlays.music = music;
 }
-// the music element, once mount() has made it
-export const PixelPlays = { mount };
