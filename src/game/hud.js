@@ -24,7 +24,12 @@ export function setStatus(text) {
 const SWING_HINT = { keys: 'arrows aim · space ground · shift+space air', touch: 'tap to hit · aerial: in the air' };
 export let swungYet = false, touchInput = matchMedia('(hover: none)').matches;
 export const setSwungYet = () => { swungYet = true; };
-export const setTouchInput = on => { touchInput = on; nodes.loft.hidden = !on; };
+// when the keyboard or a mouse takes over, the toggle hides and disarms too, so a hidden toggle never lofts a Space
+export function setTouchInput(on) {
+  touchInput = on;
+  nodes.loft.hidden = !on;
+  if (!on && aerial) setAerial(false);
+}
 /* the aerial toggle, for touch (a tap has no Shift): armed, the next swing is lofted. It is shown only while touch is
    the input in use, and it disarms after every ball (see finish in fielding) */
 export let aerial = false;
