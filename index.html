@@ -34,7 +34,7 @@
   /* team picker: same chrome as the shell's rules popup (ink on white, 1px border, monospace) */
   #picker { width: min(420px, calc(100vw - 24px)); padding: 16px; border: 1px solid var(--ink); color: var(--ink); background: var(--paper); font: inherit; }
   #picker::backdrop { background: rgba(255, 255, 255, .72); }
-  /* the welcome screen: the title, your team, the difficulty, Play, and who made it */
+  /* the welcome screen: the title, pick a team, the difficulty, Play, and who made it */
   #picker h1 { margin: 0 0 12px; font: inherit; font-size: 18px; font-weight: 600; letter-spacing: .02em; }
   #picker h2 { margin: 0 0 4px; font: inherit; font-weight: 600; }
   #picker p { margin: 0 0 12px; color: var(--muted); }
@@ -93,9 +93,8 @@
 <dialog id="picker" aria-labelledby="picker-title" aria-describedby="picker-new">
   <h1 id="picker-title">Gully Cricket</h1>
   <p id="picker-new" hidden>Play starts a new match.</p>
-  <h2 id="teams-title">Your team</h2>
-  <p id="picker-hint">You bat in their 1992 kit. The fielding side is drawn from the rest, in a kit unlike yours.</p>
-  <div id="teams" role="group" aria-labelledby="teams-title" aria-describedby="picker-hint"></div>
+  <h2 id="teams-title">Pick a team</h2>
+  <div id="teams" role="group" aria-labelledby="teams-title"></div>
   <fieldset id="level" aria-describedby="level-about">
     <legend>Difficulty</legend>
     <div id="stars"></div>
