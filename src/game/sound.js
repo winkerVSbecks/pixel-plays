@@ -2,9 +2,11 @@
 
 /* ---------- sound ----------
    Web Audio: short oscillator blips and filtered noise, no files. The context starts on the first
-   press or key (browsers only allow sound after a gesture); headless and muted play stays silent */
+   press or key (browsers only allow sound after a gesture); headless and muted play stays silent.
+   A page that sets globalThis.__silent (Storybook's preview does) never makes a context, so it never plays a sound */
 export let muted = false, audio = null, noiseBuf = null;
 export function ensureAudio() {
+  if (globalThis.__silent) return;
   if (audio) { if (audio.state === 'suspended') audio.resume(); return; }
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return;
