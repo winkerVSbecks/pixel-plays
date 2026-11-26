@@ -8,7 +8,7 @@ import { facing, G, POSE_BOWLER, POSE_FIELDER } from './state.js';
 import { nodes, setStatus, showHint } from './hud.js';
 import { nextType, range, rng, walkPose } from './rng.js';
 import { openPicker } from './picker.js';
-import { difficulty } from './difficulty.js';
+import { difficulty, LEVELS, starText } from './difficulty.js';
 
 /* ---------- the match ----------
    Every ball counts (there are no extras). The chase is won as soon as the runs reach the target; it is lost when
@@ -88,6 +88,12 @@ export function renderHud() {
   }));
   nodes.overRow.hidden = !m.thisOver.length;
   nodes.target.textContent = 'target ' + m.target;
+  const stars = difficulty().stars;
+  // the stars are seen; a screen reader hears 'difficulty 3 of 5'
+  const shown = document.createElement('span'), said = document.createElement('span');
+  shown.setAttribute('aria-hidden', 'true'); shown.textContent = starText(stars);
+  said.className = 'sr'; said.textContent = 'difficulty ' + stars + ' of ' + LEVELS.length;
+  nodes.level.replaceChildren(shown, said);
   const need = m.target - m.runs, left = OVERS * 6 - m.balls;
   const over = m.result && G.phase === 'over';
   // from the deciding ball until its result is up, the match is decided but not yet shown: no change of team

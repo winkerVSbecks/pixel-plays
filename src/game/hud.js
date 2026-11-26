@@ -12,6 +12,7 @@ export const nodes = {
   overRow: document.getElementById('over-row'),
   team: document.getElementById('team'),
   loft: document.getElementById('loft'),
+  level: document.getElementById('level-hud'),
 };
 export function setStatus(text) {
   if (text === G.status) return;

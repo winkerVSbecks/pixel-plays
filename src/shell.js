@@ -11,7 +11,7 @@ const ABOUT = [
   [['Pixel Plays on GitHub', 'https://github.com/amirmushichge/pixel-plays']],
 ];
 const css = `
-  .pp-link { font: inherit; color: #8b877f; background: none; border: 0; padding: 10px; margin: 0; cursor: pointer; }
+  .pp-link { font: inherit; color: #6b675f; background: none; border: 0; padding: 10px; margin: 0; cursor: pointer; }
   .pp-link:hover, .pp-link:focus-visible { color: #1c1b19; }
   /* About (an info icon) and Rules share the top right corner, clear of the scores at the top left */
   #pp-top { position: fixed; top: max(4px, env(safe-area-inset-top)); right: max(6px, env(safe-area-inset-right)); z-index: 5; display: flex; align-items: center; }
@@ -27,7 +27,7 @@ const css = `
   .pp-dialog a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
   .pp-dialog form { text-align: right; }
   .pp-dialog .pp-link { margin: 0 -10px -10px; color: #1c1b19; touch-action: manipulation; }
-  #pp-credits { position: fixed; bottom: max(14px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); z-index: 4; margin: 0; color: #8b877f; white-space: nowrap; pointer-events: none; }
+  #pp-credits { position: fixed; bottom: max(14px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); z-index: 4; margin: 0; color: #6b675f; white-space: nowrap; pointer-events: none; }
   #pp-credits a { color: inherit; text-decoration: underline; text-underline-offset: 2px; pointer-events: auto; }
   #pp-credits a:hover, #pp-credits a:focus-visible { color: #1c1b19; }
   /* long end-of-game status lines run towards the centre, so the credits step above them */
