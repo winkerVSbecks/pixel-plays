@@ -17,7 +17,7 @@ window.PixelPlays = (() => {
     #pp-rules li { margin-bottom: 8px; }
     #pp-rules form { text-align: right; }
     #pp-rules .pp-link { margin: 0 -10px -10px; color: #1c1b19; }
-    #pp-credits { position: fixed; bottom: max(14px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); z-index: 4; display: flex; gap: 16px; color: #8b877f; white-space: nowrap; pointer-events: none; }
+    #pp-credits { position: fixed; bottom: max(14px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); z-index: 4; margin: 0; color: #8b877f; white-space: nowrap; pointer-events: none; }
     #pp-credits a { color: inherit; text-decoration: underline; text-underline-offset: 2px; pointer-events: auto; }
     #pp-credits a:hover, #pp-credits a:focus-visible { color: #1c1b19; }
     /* long end-of-game status lines run towards the centre, so the credits step above them */
@@ -53,18 +53,17 @@ window.PixelPlays = (() => {
     open.addEventListener('click', () => dialog.showModal());
     dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); });
 
-    const credits = document.createElement('div');
+    // one line that reads "Concept by abhi and Game by AmirMushich", each name linking to its author
+    const credits = document.createElement('p');
     credits.id = 'pp-credits';
-    for (const [label, name, url] of CREDITS) {
-      const line = document.createElement('span');
+    CREDITS.forEach(([label, name, url], i) => {
       const link = document.createElement('a');
       link.href = url;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
       link.textContent = name;
-      line.append(label + ' ', link);
-      credits.append(line);
-    }
+      credits.append((i ? ' and ' : '') + label + ' ', link);
+    });
 
     document.body.append(open, dialog, credits);
     startMusic(music);
