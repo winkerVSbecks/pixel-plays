@@ -1,6 +1,6 @@
 # Gully Cricket
 
-Street cricket in a lane, shown as an isometric pixel diorama. Chase a target in 5 overs with 3 wickets and hit into the gaps between the fielders. It is plain JavaScript modules with their own software rasteriser, bundled by Vite: no runtime dependencies, no sprites or image assets.
+Street cricket in a lane, shown as an isometric pixel diorama. Chase a target in 5 overs with 3 wickets and hit into the gaps between the fielders. It is plain JavaScript modules with their own software rasteriser, bundled by Vite, with no runtime dependencies. The scene uses no sprites or image assets; the only image is the favicon.
 
 **Play: https://pixel-plays-ruby.vercel.app/**
 
@@ -49,6 +49,7 @@ Vercel runs `npm run build` and serves `dist/` (see `vercel.json`). Old `/cricke
 - `src/stories/` holds the Storybook stories: Scene/Ground (the empty lane), Batter, Bowler, Fielding, Ball and UI (the HUD and the welcome screen). Each story has time, play, rate, seed and difficulty controls.
 - `src/stories/harness/` drives them: `dom` loads the page markup the game modules expect, `scenario` replays a seeded delivery through the real game modules to any time, and `view` is the story frame and its shared controls.
 - `public/cricket.mp3` is the background track, copied into the build as it is.
+- `public/favicon.svg` is the favicon, a 16×16 pixel tennis ball in the ball colour, copied into the build as it is.
 
 ## Visual rules
 - One small place floating on pure white, with no UI chrome around it.
