@@ -70,20 +70,36 @@ export const CUE_T = .6, CUE_NOW = .05, CUE_GAP = [.12, 1.5], CUE_TICK = .45;
 
 /* ---------- the hit ----------
    Off the bat the ball is a loose body: gravity, bounces on the paving, rolls to a stop, and rebounds off the house
-   fronts and the larger props. By timing grade (perfect, good, mistimed): speed out of the bat, its climb in degrees,
-   and a random sideways error in degrees around the chosen direction. Perfect is hard and lofted, good is hard and
-   driven down so it skids along the ground, mistimed is weak and loops up. The perfect slog is a gamble: it climbs
-   steeply enough that one aimed at a house front often carries clean over it (out), and it is sprayed wide enough
-   that a narrow gap may still find a fielder; into a wide gap, or over the chalk, it is still usually six */
+   fronts and the larger props. The batter picks the shot type (SHOT_TYPES): 'ground' (Space) drives it along the
+   ground, 'air' (Shift+Space) lofts it. The timing grade (perfect, good, mistimed) then draws, from that type's row in
+   SHOTS: speed out of the bat, its climb in degrees, and a random sideways error in degrees around the chosen
+   direction. Perfect is the hardest and straightest, good a little softer and wider; mistimed is weak and loops up
+   whichever shot was played. The lofted shot is a gamble: it climbs steeply enough that one aimed at a house front
+   often carries clean over it (out), and it is sprayed wide enough that a narrow gap may still find a fielder; into
+   a wide gap, or over the chalk, it is still usually six. The ground shot is safe from a catch and from the wall,
+   but it is worth 4 at most (see GROUND_SAFE) */
 export const SHOT_TYPES = ['ground', 'air'], DEFAULT_SHOT = 'ground';
-export const SHOTS = [
-  { speed: [14, 17.5], lift: [14, 52], scatter: 9 },
-  { speed: [11.5, 14], lift: [-10, 1], scatter: 5 },
-  { speed: [4.5, 8], lift: [0, 28], scatter: 14 },
-];
+const MISTIMED = { speed: [4.5, 8], lift: [0, 28], scatter: 14 };
+export const SHOTS = {
+  ground: [
+    { speed: [12.5, 15.5], lift: [-10, 1], scatter: 4 },
+    { speed: [11.5, 14], lift: [-10, 1], scatter: 6 },
+    MISTIMED,
+  ],
+  air: [
+    { speed: [14, 17.5], lift: [14, 52], scatter: 9 },
+    { speed: [12, 15], lift: [12, 46], scatter: 13 },
+    MISTIMED,
+  ],
+};
+/* a ground shot graded GROUND_SAFE or better (perfect or good) and not edged cannot be caught on the full: it is
+   gathered like a bounced ball (GATHER_Z, GATHER_R). Any ground shot, edged and mistimed ones included, is worth 4
+   at most: the wall or the chalk is 4 even on the full */
+export const GROUND_SAFE = 1;
 /* the glance behind (SE): played fine, past the bricks and the drum on the side away from the camera, so it is a
-   real shot (four, or runs if fine cuts it off) and not a thud into the bricks. It is played softer and kept low */
-export const GLANCE = 3, GLANCE_PACE = .72, GLANCE_LIFT = 12;
+   real shot (four, or runs if fine cuts it off) and not a thud into the bricks. It is played softer, and its climb
+   is capped by shot type (GLANCE_LIFT, degrees): kept low along the ground, or flicked up over fine leg in the air */
+export const GLANCE = 3, GLANCE_PACE = .72, GLANCE_LIFT = { ground: 12, air: 30 };
 /* hitting across the movement. A ball that moved off the pitch is safest hit with it: towards the side it is moving
    to, the way the landing ring's wedge points. Hit against it and the bat meets it at an angle. How much depends on
    crossOf: how far the ball moved (its amount) times how square across the movement the shot goes (1 for straight
@@ -173,7 +189,8 @@ export const FIELD_BOUNDS = { x0: WALL_X + 1.4, x1: CHALK_X - .45, y0: WALL_Y + 
 export const REACT = .25, RUN_SPEED = 5, JOG = 4.2, GATHER_R = .6, GATHER_Z = 1.5;
 export const CATCH_REACT = .3, CATCH_RUN = 4.6;
 // a ball that has not touched the ground, a wall or a prop is caught if it comes within CATCH_R of a fielder below
-// CATCH_Z (a stretch and a jump above the head). Anything that has touched something first is only fielded: clean catches only
+// CATCH_Z (a stretch and a jump above the head). Anything that has touched something first is only fielded: clean catches only.
+// A clean ground shot (see GROUND_SAFE) is fielded the same way, even on the full
 export const CATCH_R = .85, CATCH_Z = 2.7;
 // a ball still flying faster than CATCH_HOT when it reaches a fielder's hands is a hard chance: held only 85% of the
 // time (DROP). A drop is fielded where it fell, so a hit straight at a deep fielder is a gamble and not a sure out

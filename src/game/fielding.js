@@ -20,16 +20,19 @@ import { sfx } from './sound.js';
    moment any fielder can be at it: that fielder chases to that spot, the others stay set and watch. A boundary
    reached first beats them all. If the chase somehow falls through, it is planned again from where things are. */
 export const team = () => [G.bowler, ...G.fielders];
-const canCatch = b => !b.touched && b.z <= CATCH_Z;
+// a ball can be caught only if it has touched nothing and was not a clean ground shot (b.grounded, see strike), which
+// is gathered as if it had bounced
+const onFull = b => !b.touched && !b.grounded;
+const canCatch = b => onFull(b) && b.z <= CATCH_Z;
 const canGather = (b, f) => f === G.bowler && Math.hypot(b.vx, b.vy, b.vz) > BOWLER_HOT ? false
-  : b.touched ? b.z <= GATHER_Z : b.z <= (f === G.bowler ? BOWLER_CATCH_Z : CATCH_Z);
-const reachOf = (b, f) => b.touched ? GATHER_R : f === G.bowler ? BOWLER_CATCH_R : CATCH_R;
+  : !onFull(b) ? b.z <= GATHER_Z : b.z <= (f === G.bowler ? BOWLER_CATCH_Z : CATCH_Z);
+const reachOf = (b, f) => !onFull(b) ? GATHER_R : f === G.bowler ? BOWLER_CATCH_R : CATCH_R;
 export function planChase(ball, react) {
   const sim = { ...ball }, players = team();
   while (sim.t < LIVE_MAX) {
     stepBall(sim, PHYS_DT);
     if (sim.event || sim.gone) break;
-    const air = !sim.touched, run = air ? Math.max(0, sim.t - ball.t - react * CATCH_REACT / REACT) * CATCH_RUN : Math.max(0, sim.t - ball.t - react) * RUN_SPEED;
+    const air = onFull(sim), run = air ? Math.max(0, sim.t - ball.t - react * CATCH_REACT / REACT) * CATCH_RUN : Math.max(0, sim.t - ball.t - react) * RUN_SPEED;
     // (the bowler cannot run for a catch: he only takes one that comes to him; once it lands he chases like anyone)
     for (const f of players) if (canGather(sim, f) && Math.hypot(f.x - sim.x, f.y - sim.y) <= (f === G.bowler && air ? 0 : run) + reachOf(sim, f)) return { f, t: sim.t, x: sim.x, y: sim.y, air, react };
     if (sim.still) break;
@@ -66,9 +69,12 @@ export function stepLive(d) {
     const e = b.event;
     if (e && e.how === 'wall') { burst(e.at, 8, DUST, 1.4, 1.2, .45); sfx('wall', e.prop ? .7 : 1); }
     if (e) {
-      // clean over a house front: lost in the neighbour's, and the batter is out
-      if (e.how === 'over') return finish(d, 'hit', { runs: 0, out: true, how: 'over the wall' });
-      return finish(d, 'hit', { runs: e.touched ? 4 : 6, out: false, how: e.how });
+      // clean over a house front: lost in the neighbour's, and the batter is out (a ground shot never climbs that
+      // high; if one did, it would count as reaching the wall)
+      const capped = b.shotType === 'ground';
+      if (e.how === 'over' && !capped) return finish(d, 'hit', { runs: 0, out: true, how: 'over the wall' });
+      // the wall or the chalk: 6 on the full, 4 if it bounced first or was a ground shot
+      return finish(d, 'hit', { runs: e.touched || capped ? 4 : 6, out: false, how: e.how === 'over' ? 'wall' : e.how });
     }
     const f = gatherer(b);
     if (f) {
@@ -120,7 +126,7 @@ function finish(d, result, outcome) {
     dt: sw ? sw.dt : null, against: sw ? sw.against : false, result,
   };
   const b = G.ball;
-  if (result === 'hit') Object.assign(G.last, { shot: d.shot, cross: d.cross, edge: d.edge, touched: b.event ? b.event.touched : b.touched, bounces: b.bounces, at: { x: b.x, y: b.y, z: b.z }, t: b.t });
+  if (result === 'hit') Object.assign(G.last, { shot: d.shot, cross: d.cross, edge: d.edge, touched: b.event ? b.event.touched : b.touched, grounded: !!b.grounded, bounces: b.bounces, at: { x: b.x, y: b.y, z: b.z }, t: b.t });
   const o = outcome || (result === 'bowled' ? { runs: 0, out: true, how: 'bowled' } : { runs: 0, out: false, how: 'beaten' });
   Object.assign(G.last, o, { field: G.field });
   G.history.push(G.last);

@@ -3,7 +3,7 @@ import { clamp, figure, lerp } from '../engine.js';
 import {
   AIM_X, BACKSTOP, BALL_R, BOUNCE, BOWLER, BOWLER_YAW, BOWLERS, BRICK, CHALK_X, CONTACT_X, CROSS, crossOf,
   DIR_WORLD, GLANCE, GLANCE_LIFT, GLANCE_PACE, GRAVITY, LEG, LEG_SIDE, LINE_ODDS, LINES, OFF_SIDE, PITCH_Y,
-  REACT, RELEASE_X, SHOT_TYPES, SHOTS, STUMPS_FACE,
+  DEFAULT_SHOT, GROUND_SAFE, REACT, RELEASE_X, SHOT_TYPES, SHOTS, STUMPS_FACE,
 } from './constants.js';
 import { G } from './state.js';
 import { nodes, setStatus, setSwungYet, showHint, swungYet } from './hud.js';
@@ -84,7 +84,7 @@ function gradeOf(dt, win) {
    arrival at the bat; the timing alone decides whether the bat meets the ball. Hitting against the line costs one
    grade, and so does a ball that moved off the pitch unless the timing was perfect, but neither (nor both) can
    take a connecting swing past mistimed. Returns the swing, or null when there is nothing to swing at. */
-export function swingAt(dir, t = G.time, shotType = 'ground') {
+export function swingAt(dir, t = G.time, shotType = DEFAULT_SHOT) {
   if (!SHOT_TYPES.includes(shotType)) throw new Error('no shot type ' + shotType);
   const d = G.del;
   if (G.phase === 'pick' || d.stage !== 'flight' || d.swing || t >= d.tStumps) return null;
@@ -107,9 +107,11 @@ export function swingAt(dir, t = G.time, shotType = 'ground') {
   return d.swing;
 }
 /* the swing met the ball: it leaves the bat in the chosen direction, give or take the grade's scatter, at a speed
-   and climb drawn for the grade. G.force may fix speed, lift (degrees) and scatter (degrees, signed) for tests */
+   and climb drawn for the shot type and the grade (SHOTS[shotType][grade]). G.force may fix speed, lift (degrees)
+   and scatter (degrees, signed) for tests. The ball carries its shot type: a ground shot is never a six, and one met
+   with the middle is marked grounded, so it cannot be caught on the full either (see GROUND_SAFE) */
 export function strike(d) {
-  const at = ballAt(d, d.hitAt), sw = d.swing, S = SHOTS[sw.grade], f = G.force;
+  const at = ballAt(d, d.hitAt), sw = d.swing, S = SHOTS[sw.shotType][sw.grade], f = G.force;
   const w = DIR_WORLD[sw.dir], aim = Math.atan2(w[1], w[0]);
   const scatter = f.scatter != null ? f.scatter : (rng() * 2 - 1) * S.scatter;
   let lift = f.lift != null ? f.lift : range(S.lift), speed = f.speed != null ? f.speed : range(S.speed);
@@ -118,7 +120,7 @@ export function strike(d) {
     // aim a ball's width and more past the far side of the bricks and the drum, at the chalk
     const clearY = Math.min(BACKSTOP.y - BACKSTOP.r, PITCH_Y - BRICK.l) - 1;
     yaw = Math.atan2(clearY - at.y, CHALK_X - at.x) + scatter * Math.PI / 180;
-    if (f.lift == null) lift = Math.min(lift, GLANCE_LIFT);
+    if (f.lift == null) lift = Math.min(lift, GLANCE_LIFT[sw.shotType]);
     if (f.speed == null) speed *= GLANCE_PACE;
     flat = Math.cos(lift * Math.PI / 180) * speed;
   }
@@ -142,6 +144,7 @@ export function strike(d) {
   G.ball = {
     x: at.x, y: at.y, z: Math.max(at.z, .35), vx: Math.cos(yaw) * flat, vy: Math.sin(yaw) * flat, vz: Math.sin(lift * Math.PI / 180) * speed,
     t: 0, touched: false, bounces: 0, event: null, from: { x: at.x, y: at.y },
+    shotType: sw.shotType, grounded: sw.shotType === 'ground' && sw.grade <= GROUND_SAFE && !edge,
   };
   d.shot = { speed, lift, scatter };
   d.stage = 'live';
