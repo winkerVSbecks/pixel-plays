@@ -12,12 +12,17 @@ const css = `
   /* Controls, Rules, then About (an info icon) at the far right, share the top right corner, clear of the scores at the top left */
   #pp-top { position: fixed; top: max(4px, env(safe-area-inset-top)); right: max(6px, env(safe-area-inset-right)); z-index: 5; display: flex; align-items: center; }
   #pp-about-open { display: grid; place-items: center; padding: 10px; touch-action: manipulation; }
-  #pp-about-open svg { display: block; width: 17px; height: 17px; }
+  #pp-top svg { display: block; width: 17px; height: 17px; }
   #pp-controls-open, #pp-rules-open { touch-action: manipulation; }
-  /* on a narrow phone the three sit closer together, so Controls stays clear of the score and stars */
-  @media (max-width: 380px) {
-    #pp-controls-open, #pp-rules-open { padding: 10px 4px; }
-    #pp-about-open { padding: 10px 6px; }
+  #pp-controls-open svg { display: none; }
+  /* on a narrow phone Controls is a "?" icon, a pair with the About info icon, so all three stay clear of the
+     score and stars at the top left. Each icon is a 38px square to tap */
+  @media (max-width: 379.98px) {
+    #pp-controls-open { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; }
+    #pp-controls-open span { display: none; }
+    #pp-controls-open svg { display: block; }
+    #pp-rules-open { padding: 10px 8px; }
+    #pp-about-open { width: 38px; height: 38px; padding: 0; }
   }
   /* About is a few short lines; Controls and Rules are wider, so their long lines read at about 80 characters.
      All stay clear of the edges on a phone */
@@ -55,7 +60,12 @@ export function mount({ controls, rules: ruleList, music }) {
     return [name, ' ' + text];
   })));
   const controlsOpen = opener('pp-controls-open', keys.dialog);
-  controlsOpen.textContent = 'Controls';
+  // the word on a wide screen, a "?" icon on a narrow phone; its name is Controls at every width
+  controlsOpen.setAttribute('aria-label', 'Controls');
+  controlsOpen.setAttribute('aria-haspopup', 'dialog');
+  controlsOpen.innerHTML = '<span>Controls</span><svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.3">'
+    + '<circle cx="8" cy="8" r="7"/><path d="M6.1 6.2a1.9 1.9 0 1 1 2.7 1.7c-.5.25-.8.6-.8 1.15v.55" stroke-linecap="round" stroke-linejoin="round"/>'
+    + '<circle cx="8" cy="11.6" r=".55" fill="currentColor" stroke="none"/></svg>';
 
   const rules = popup('pp-rules', 'Rules');
   rules.body.append(list('ol', ruleList.map(rule => typeof rule === 'string' ? [rule] : [rule.text, list('ul', rule.items.map(item => [item]))])));

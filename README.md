@@ -11,7 +11,7 @@ Gully Cricket by [Varun](https://varun.ca), based on the original concept by [ab
 - Space, Enter or a click plays a grounded shot, along the ground. Hold Shift for an aerial shot, in the air: Shift+Space, Shift+Enter or Shift+click. Shift on its own does nothing.
 - A grounded shot is safer: a clean one can't be caught on the full, and it scores at most 4. An aerial shot can go for 6 but is caught far more often.
 - On a touch screen, tap around the batter to aim and swing at once; a tap plays grounded. The **aerial** button above the bottom bar arms the next ball for an aerial shot and resets after it. It shows only while you play by touch.
-- **Controls** (top right) lists the keys, mouse and touch controls; **Rules** beside it explains scoring and how you get out, and the info icon after them opens About. **change team** goes back to the welcome screen; **sound on/off** mutes the music and effects.
+- **Controls** (top right; a "?" icon on a narrow phone) lists the keys, mouse and touch controls; **Rules** beside it explains scoring and how you get out, and the info icon after them opens About. **change team** goes back to the welcome screen; **sound on/off** mutes the music and effects.
 
 ## Welcome screen and difficulty
 Before each match the welcome screen asks for your team (nine kits; the fielding side is drawn from the rest, in a kit unlike yours) and a difficulty of 1 to 5 stars. Play starts the match. Both choices are remembered in the browser, and the HUD shows the stars in play. Each level adds to the one before it:
