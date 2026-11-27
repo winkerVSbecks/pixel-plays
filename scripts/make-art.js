@@ -73,9 +73,10 @@ function frame(sc, t) {
    Pixel capitals drawn from 6×7 masks, where every mask column and row is given its own width and height in logo
    pixels: that is how GULLY is set broad and heavy and CRICKET condensed, from the same letters. The logo grid lands
    on the preview at LOGO px a pixel, the same ×5 as the scene, so its blocks line up with the scene's.
-   GULLY is a dark indigo taken from the scene's shadows, lit along the top of every stroke and Bayer-dithered darker
-   towards its foot; CRICKET is the favicon's cricket-ball red, flat, with the ball's highlight along its tops. Both
-   have an ink side extruded DEPTH logo pixels down and to the right and an ink outline round the lot. */
+   Every colour is one the engine paints in this very frame. GULLY_FILL / CRICKET_FILL below name where each was
+   sampled; each word is lit along the top of every stroke and Bayer-dithered darker towards its foot, the way the
+   engine shades a wall. Both have a side extruded DEPTH logo pixels down and to the right and an outline EDGE logo
+   pixels thick round the lot, in the scene's darkest shadow tone, so the title holds over the busy street. */
 const GLYPHS = {
   G: ['.####.', '##..##', '##....', '##.###', '##..##', '##..##', '.#####'],
   U: ['##..##', '##..##', '##..##', '##..##', '##..##', '##..##', '.####.'],
@@ -88,13 +89,19 @@ const GLYPHS = {
   E: ['######', '##....', '##....', '#####.', '##....', '##....', '######'],
   T: ['######', '..##..', '..##..', '..##..', '..##..', '..##..', '..##..'],
 };
-const LOGO = 5, DEPTH = 2, LEAD = 1;   // logo pixel in preview px; the extruded side and the space under a line, in logo px
-const INDIGO = ['#504a6b', '#423d59', '#35314a'], INDIGO_LIT = '#958eb3', TITLE_INK = '#1e1c2b';
+const LOGO = 5, DEPTH = 3, LEAD = 1, EDGE = 2;   // logo pixel in preview px; the side, the space under a line and the outline, in logo px
+/* sampled from the rendered scene (see the note above the title) */
+const INK = '#1e1c2b';                                     // the darkest shadow: the window openings and doorways
+const SAND = ['#e2c48c', '#b69e73'], SAND_LIT = '#f0e6d3';  // the sand house: its lit wall, its wall in shade, the window sills
+const BRICK = ['#c6795b', '#a6523c'];                       // the brick wall: the bricks catching the light, its brick
+const PINK_LIT = '#deb2aa';                                 // the pink house's lit wall, as the brick's highlight
+/* GULLY in the sand of the house it starts beside, CRICKET in the brick of the wall next to it */
+const GULLY_FILL = { ramp: SAND, lit: SAND_LIT }, CRICKET_FILL = { ramp: BRICK, lit: PINK_LIT };
 /* the lines, top to bottom. cols and rows: each mask column's width and each row's height (icols for the narrower I);
-   gap: logo pixels between letters. GULLY: 80×80 px letters with 25 px stems; CRICKET: 40×60 px with 15 px stems */
+   gap: logo pixels between letters. GULLY: 120×125 px letters with 45 px stems; CRICKET: 60×90 px with 25 px stems */
 const TITLE = [
-  { text: 'GULLY', cols: [3, 3, 2, 2, 3, 3], rows: [3, 2, 2, 2, 2, 2, 3], gap: 3, ramp: INDIGO, lit: INDIGO_LIT },
-  { text: 'CRICKET', cols: [2, 1, 1, 1, 1, 2], icols: [1, 2, 1, 1], rows: [2, 2, 1, 2, 1, 2, 2], gap: 2, ramp: [CRICKET_BALL.r], lit: CRICKET_BALL.h },
+  { text: 'GULLY', cols: [5, 4, 3, 3, 4, 5], rows: [5, 3, 3, 3, 3, 3, 5], gap: 5, ...GULLY_FILL },
+  { text: 'CRICKET', cols: [3, 2, 1, 1, 2, 3], icols: [2, 3, 2, 2], rows: [3, 3, 2, 2, 2, 3, 3], gap: 3, ...CRICKET_FILL },
 ];
 const sum = a => a.reduce((s, v) => s + v, 0);
 const edges = a => a.reduce((e, v) => (e.push(e.at(-1) + v), e), [0]);
@@ -105,8 +112,8 @@ const lineWidth = line => sum([...line.text].map(ch => sum(colsOf(line, ch)))) +
    starts `top` px down, and each line sits LEAD logo px under the side of the one above */
 function logo(right, top) {
   const w = OG_W / LOGO, h = OG_H / LOGO, fill = new Grid(w, h), at = new Grid(w, h), g = new Grid(w, h);
-  const r = right / LOGO - 2 - DEPTH;   // the last fill column: the side and the outline lie to its right
-  let y0 = top / LOGO + 1;
+  const r = right / LOGO - 1 - DEPTH - EDGE;   // the last fill column: the side and the outline lie to its right
+  let y0 = top / LOGO + EDGE;
   for (const line of TITLE) {
     const ry = edges(line.rows), hgt = ry.at(-1);
     let x0 = r + 1 - lineWidth(line);
@@ -122,14 +129,25 @@ function logo(right, top) {
   const isFill = (x, y) => fill.get(x, y) !== null;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     if (isFill(x, y)) continue;
-    for (let k = 1; k <= DEPTH; k++) if (isFill(x - k, y - k)) { g.set(x, y, TITLE_INK); break; }
+    for (let k = 1; k <= DEPTH; k++) if (isFill(x - k, y - k)) { g.set(x, y, INK); break; }
   }
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     if (!isFill(x, y)) continue;
     const { line, t } = at.get(x, y), n = line.ramp.length;
     g.set(x, y, !isFill(x, y - 1) ? line.lit : line.ramp[Math.max(0, Math.min(n - 1, Math.floor(t * n - .3 + (BAYER[(y & 3) * 4 + (x & 3)] - .5) * 1.2)))]);
   }
-  return g.outline(TITLE_INK, true);
+  for (let k = 0; k < EDGE; k++) g.outline(INK, true);
+  // ink any pocket the outline closes off (one sits in the E), so no speck of the scene shows through the letters
+  const open = new Set(), todo = [0];
+  while (todo.length) {
+    const i = todo.pop();
+    if (open.has(i) || g.p[i] !== null) continue;
+    open.add(i);
+    const x = i % w, y = (i - x) / w;
+    if (x > 0) todo.push(i - 1); if (x < w - 1) todo.push(i + 1); if (y > 0) todo.push(i - w); if (y < h - 1) todo.push(i + w);
+  }
+  for (let i = 0; i < g.p.length; i++) if (g.p[i] === null && !open.has(i)) g.p[i] = INK;
+  return g;
 }
 // the box of everything drawn on a logo grid, in preview pixels
 function boxOf(g) {
@@ -166,16 +184,23 @@ const AFTER = .16, X0 = 162, Y0 = 70, SCALE = 5;   // close on the batter at ×5
 const og = crop(frame(SIX, moment(SIX, 'contact', AFTER)), X0, Y0, SCALE);
 inSafe('batter', batterBox(X0, Y0, SCALE));
 
-/* the title in the white at the upper right, the same SAFE margin to the top and the right edges. Set flush right, the
-   broad GULLY over the narrower CRICKET steps in towards the corner, as the roofline below it does, so the title
-   follows the diagonal edge of the scene with a band of white between. It must sit wholly on white: it may not
-   touch a single pixel of the scene (the rooftop water tank sits just below the C of CRICKET) */
-const title = logo(OG_W - SAFE, SAFE);
-inSafe('title', boxOf(title));
-for (let y = 0; y < title.h; y++) for (let x = 0; x < title.w; x++) {
-  if (title.get(x, y) === null) continue;
-  for (let v = 0; v < LOGO; v++) for (let u = 0; u < LOGO; u++)
-    if (og.get(x * LOGO + u, y * LOGO + v) !== PAPER) throw new Error(`the title touches the scene at (${x * LOGO + u}, ${y * LOGO + v})`);
+/* the ball on the output grid: the engine's ball, a few pixels either way, for the check that the title leaves it clear */
+function ballBox(x0, y0, scale) {
+  const b = project(G.ball.x, G.ball.y, G.ball.z), r = 3;
+  return { x0: (b.sx - r - x0) * scale, y0: (b.sy - r - y0) * scale, x1: (b.sx + r - x0) * scale, y1: (b.sy + r - y0) * scale };
 }
+const ball = ballBox(X0, Y0, SCALE), batter = batterBox(X0, Y0, SCALE);
+
+/* the title big and across the middle, as in the mockup the art was drawn to: GULLY from the brick wall over the pink
+   house's roof and out onto the white, CRICKET under it over the fielders by the scooter, both lines ending on the
+   white at the right. It may lie over the scene, but not over the batter or the ball, and keeps SAFE clear of every edge */
+const title = logo(1105, 210), titleBox = boxOf(title);
+inSafe('title', titleBox);
+for (const [name, b] of [['batter', batter], ['ball', ball]])
+  for (let y = 0; y < title.h; y++) for (let x = 0; x < title.w; x++) {
+    if (title.get(x, y) === null) continue;
+    if (x * LOGO < b.x1 && (x + 1) * LOGO > b.x0 && y * LOGO < b.y1 && (y + 1) * LOGO > b.y0) throw new Error(`the title covers the ${name} at (${x * LOGO}, ${y * LOGO})`);
+  }
 for (let y = 0; y < title.h; y++) for (let x = 0; x < title.w; x++) { const c = title.get(x, y); if (c !== null) og.rect(x * LOGO, y * LOGO, LOGO, LOGO, c); }
+console.log('title box', JSON.stringify(titleBox), 'batter', JSON.stringify(batter), 'ball', JSON.stringify(ball));
 out('public/og.png', png(og));
