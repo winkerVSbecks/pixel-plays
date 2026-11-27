@@ -1,16 +1,16 @@
-// the page chrome around the game: the Rules and About popups and the music
+// the page chrome around the game: the Controls, Rules and About popups and the music
 import { mount } from './shell.js';
 
 mount({
   music: 'cricket.mp3',
-  // the Rules popup opens on the controls: a bold label, then its text
+  // the Controls popup: a bold label, then its text
   controls: [
     ['Aim:', 'arrow keys (two for a diagonal), Q W E A D Z X C, or the mouse. The dotted line shows where. With no key held, you hit straight past the bowler.'],
     ['Ground shot:', 'Space, Enter, or click.'],
     ['Aerial shot:', 'hold Shift as you hit.'],
     ['Touch:', 'tap around the batter to aim and hit along the ground. Tap aerial first to hit the next ball in the air.'],
   ],
-  // then the numbered rules: text, or { text, items } for a rule with a list under it
+  // the Rules popup, numbered: text, or { text, items } for a rule with a list under it
   rules: [
     'Chase the target in 5 overs of 6 balls. Lose 3 wickets and you\'re all out. The bowler alternates fast and spin each over.',
     'Swing when the two ticks close into a bar. The closer to the bar, the harder and straighter the hit. Well off it, the ball pops up softly for little or nothing.',
