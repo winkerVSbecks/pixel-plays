@@ -1,4 +1,4 @@
-// Page chrome: About and Rules popups (top right) and background music. The credits live in About and on the welcome screen.
+// Page chrome: About and Rules popups (top right) and background music. The credits live in About.
 const MUSIC_VOLUME = .4;
 // the About popup, one paragraph per line: text, and [text, url] for a link
 const ABOUT = [

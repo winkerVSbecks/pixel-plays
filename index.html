@@ -50,15 +50,12 @@
   /* team picker: same chrome as the shell's rules popup (ink on white, 1px border, monospace) */
   #picker { width: min(420px, calc(100vw - 24px)); padding: 16px; border: 1px solid var(--ink); color: var(--ink); background: var(--paper); font: inherit; }
   #picker::backdrop { background: rgba(255, 255, 255, .72); }
-  /* the welcome screen: the title, pick a team, the difficulty, Play, and who made it */
+  /* the welcome screen: the title, pick a team, the difficulty and Play (who made it is in About) */
   #picker h1 { margin: 0 0 12px; font: inherit; font-size: 18px; font-weight: 600; letter-spacing: .02em; }
   #picker h2 { margin: 0 0 4px; font: inherit; font-weight: 600; }
   #picker p { margin: 0 0 12px; color: var(--muted); }
   #picker #picker-new { color: var(--ink); }
   #picker #level-about { min-height: 4.05em; margin: 6px 0 0; }
-  #picker .credit { margin: 14px 0 0; text-align: center; }
-  #picker .credit a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
-  #picker .credit a:hover, #picker .credit a:focus-visible { color: var(--ink); }
   /* difficulty: five stars as one radio group (arrow keys move and choose); the stars up to the choice are filled */
   #level { margin: 14px 0 0; padding: 0; border: 0; min-width: 0; }
   #level legend { padding: 0; margin: 0 0 4px; font-weight: 600; }
@@ -120,7 +117,6 @@
     <button id="picker-back" type="button" hidden>back to the match</button>
     <button id="play" type="button">Play</button>
   </div>
-  <p class="credit">Gully Cricket by <a href="https://varun.ca" target="_blank" rel="noopener noreferrer">Varun</a>, based on the original by <a href="https://x.com/awwbhi2" target="_blank" rel="noopener noreferrer">abhi</a> and <a href="https://x.com/AmirMushich" target="_blank" rel="noopener noreferrer">AmirMushich</a></p>
 </dialog>
 <script type="module" src="/src/main.js"></script>
 </body>
