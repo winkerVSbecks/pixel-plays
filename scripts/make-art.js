@@ -9,27 +9,27 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = (file, data) => { mkdirSync(dirname(join(ROOT, file)), { recursive: true }); writeFileSync(join(ROOT, file), data); console.log('wrote', file); };
 
 /* ---------- the favicon: a red leather cricket ball on 16×16 ----------
-   k ink outline, r leather, d the shaded underside, h a small highlight, w the pale stitched seam
-   (two rows of stitching with the cross stitches between them). */
+   k ink outline, r leather, d the shaded underside, h a small highlight, s the seam (a thin darker-red line)
+   and w its pale stitches, one per row on alternating sides, with red leather between every stitch. */
 const BALL_16 = [
   '................',
   '.....kkkkkk.....',
-  '...kkrrrwwwkk...',
-  '..krhhrrwrwrrk..',
-  '..khhrrrwwwrrk..',
-  '.krhrrrwrwrrrrk.',
-  '.krrrrrwwwrrrrk.',
-  '.krrrrwrwrrrrrk.',
-  '.krrrrwwwrrrrdk.',
-  '.krrrwrwrrrrrdk.',
-  '.krrrwwwrrrrddk.',
-  '..krwrwrrrrddk..',
-  '..kwwwrrrddddk..',
+  '...kkrrrrrrkk...',
+  '..krhhrrrwsrrk..',
+  '..khhrrrrswrrk..',
+  '.krhrrrrwsrrrrk.',
+  '.krrrrrrswrrrrk.',
+  '.krrrrwsrrrrrrk.',
+  '.krrrrrswrrrrdk.',
+  '.krrrwsrrrrrrdk.',
+  '.krrrrswrrrrddk.',
+  '..krwsrrrrrddk..',
+  '..krswrrrddddk..',
   '...kkrrrdddkk...',
   '.....kkkkkk.....',
   '................',
 ];
-const CRICKET_BALL = { k: '#1c1b19', r: '#b8232b', d: '#7c1820', h: '#ec7a62', w: '#f4e6c8' };
+const CRICKET_BALL = { k: '#1c1b19', r: '#b8232b', d: '#7c1820', s: '#7c1820', h: '#ec7a62', w: '#f4e6c8' };
 const favicon = new Grid(16, 16);
 favicon.sprite(BALL_16, CRICKET_BALL);
 out('public/favicon.svg', svg(favicon));
