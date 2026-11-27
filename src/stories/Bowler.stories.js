@@ -1,5 +1,6 @@
-// The bowler: the fast and the spin run-up, the delivery stride and follow-through, the walk back to his mark, and a
-// gather off his own bowling. Each story replays one seeded ball through the game.
+// The bowler: the fast and the spin run-up, the delivery stride and follow-through, the walk back to his mark, a
+// return catch (caught and bowled) and a gather off his own bowling. Each story replays one seeded ball through the
+// game.
 import { findBall, moment } from './harness/scenario.js';
 import { stage, timeArgs, timeArgTypes } from './harness/view.js';
 
@@ -29,12 +30,21 @@ export const SpinFollowThrough = { name: 'Spin follow-through', args: { ...DEFAU
 /* the ball is dead: he turns and walks back to his mark for the next one */
 export const WalkBack = { name: 'Walking back', args: { ...DEFAULTS, zoom: 2, time: at({}, 'done', 1.4) } };
 
-/* a straight hit back at him that he fields off his own bowling (searched from the seed over every direction). A
-   return catch on the full is in the game's rules, but no seeded or forced ball at any level produced one, so this
-   is the bowler's own gather: he gets down to it and holds it up */
+/* caught and bowled: a lofted hit straight back that he takes on the full off his own bowling, both hands up, and
+   the fielding side cheers (searched from the seed for a ball he catches) */
 const RETURN = a => ({ seed: a.seed, difficulty: a.difficulty, type: a.type, swing: { dir: 'NW', shot: 'air', timing: 'perfect' } });
-const byBowler = o => o.by === 'bowler';
-const returnSc = a => findBall(RETURN(a), byBowler, { anyDir: true });
+const caughtAndBowled = o => o.how === 'caught' && o.by === 'bowler';
+const catchSc = a => findBall(RETURN(a), caughtAndBowled);
+export const CaughtAndBowled = {
+  name: 'Caught and bowled',
+  args: { ...DEFAULTS, zoom: 2, time: +moment(catchSc(DEFAULTS), 'done', .3).toFixed(2) },
+  argTypes: { line: { table: { disable: true } }, move: { table: { disable: true } } },
+  render: a => stage(catchSc(a), a, { label: 'The bowler catching a hit straight back off his own bowling' }),
+};
+/* a hit back at him that bounces first: he fields it off his own bowling and holds it up (searched from the seed over
+   every direction) */
+const fieldedByBowler = o => o.how === 'fielded' && o.by === 'bowler' && !o.dropped;
+const returnSc = a => findBall(RETURN(a), fieldedByBowler, { anyDir: true });
 export const FieldsOwnBowling = {
   name: 'Fielding off his own bowling',
   args: { ...DEFAULTS, zoom: 2, time: +moment(returnSc(DEFAULTS), 'done', .3).toFixed(2) },
