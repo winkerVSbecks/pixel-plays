@@ -38,7 +38,7 @@ npm run storybook        # parts of the game in Storybook, at http://localhost:6
 npm run build-storybook  # a static Storybook in storybook-static/
 ```
 
-Netlify runs `npm run build` and serves `dist/` (see `netlify.toml`). Old `/cricket/` links redirect to `/`. `vercel.json` is kept for the earlier Vercel deploy.
+Netlify runs `npm run build` and serves `dist/` (see `netlify.toml`). Old `/cricket/` links redirect to `/`.
 
 ## Files
 - `index.html` is the page: the canvas, the HUD and the team picker's markup and styles. It loads `src/main.js`.
