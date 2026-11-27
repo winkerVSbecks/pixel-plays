@@ -16,28 +16,37 @@ const css = `
   #pp-rules-open { touch-action: manipulation; }
   /* wide enough that the rules read in longer lines (about 60 characters), still clear of the edges on a phone */
   .pp-dialog { width: min(520px, calc(100vw - 32px)); padding: 16px; border: 1px solid #1c1b19; color: #1c1b19; background: #fff; font: inherit; }
+  /* on a short screen the body scrolls inside the dialog, and Close stays in view below it */
+  .pp-dialog[open] { display: flex; flex-direction: column; }
+  /* it reaches into the dialog's side padding, so the scroll box does not clip the list numbers that sit in it */
+  .pp-body { overflow-y: auto; min-height: 0; margin: 0 -16px; padding: 0 16px; }
   .pp-dialog::backdrop { background: rgba(255, 255, 255, .72); }
   .pp-dialog h2 { margin: 0 0 10px; font: inherit; font-weight: 600; }
-  .pp-dialog ol { margin: 0 0 8px; padding-left: 18px; }
+  .pp-dialog * + h2 { margin-top: 16px; }
+  .pp-dialog ol, .pp-dialog ul { margin: 0 0 8px; padding-left: 18px; }
   .pp-dialog li { margin-bottom: 8px; }
+  .pp-dialog li ul { margin: 8px 0 0; }
+  .pp-dialog li li { margin-bottom: 4px; }
+  .pp-dialog strong { font-weight: 600; }
   .pp-dialog p { margin: 0 0 8px; }
   .pp-dialog a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
   .pp-dialog form { text-align: right; }
   .pp-dialog .pp-link { margin: 0 -10px -10px; color: #1c1b19; touch-action: manipulation; }
 `;
-export function mount({ title: heading, rules: ruleList, music }) {
+export function mount({ controls, rules: ruleList, music }) {
   const style = document.createElement('style');
   style.textContent = css;
   document.head.append(style);
 
-  const rules = popup('pp-rules', heading);
-  const steps = document.createElement('ol');
-  for (const rule of ruleList) {
-    const li = document.createElement('li');
-    li.textContent = rule;
-    steps.append(li);
-  }
-  rules.body.append(steps);
+  // no visible title: it opens straight on Controls, and is named Rules for screen readers
+  const rules = popup('pp-rules', 'Rules', false);
+  const keys = list('ul', controls.map(([label, text]) => {
+    const name = document.createElement('strong');
+    name.textContent = label;
+    return [name, ' ' + text];
+  }));
+  const steps = list('ol', ruleList.map(rule => typeof rule === 'string' ? [rule] : [rule.text, list('ul', rule.items.map(item => [item]))]));
+  rules.body.append(subhead('Controls'), keys, subhead('Rules'), steps);
   const rulesOpen = opener('pp-rules-open', rules.dialog);
   rulesOpen.textContent = 'Rules';
 
@@ -60,22 +69,43 @@ export function mount({ title: heading, rules: ruleList, music }) {
   document.body.append(top, rules.dialog, about.dialog);
   startMusic(music);
 }
-// a modal in the Rules chrome: a title, a body and a Close button. Esc closes it (the browser's own dialog
-// behaviour), and so does a press on the backdrop. While any dialog is open the game takes no input and pauses
-function popup(id, heading) {
+// a list element, one item per entry; each entry is the nodes and strings that go in its item
+function list(tag, entries) {
+  const el = document.createElement(tag);
+  el.append(...entries.map(parts => {
+    const li = document.createElement('li');
+    li.append(...parts);
+    return li;
+  }));
+  return el;
+}
+function subhead(text) {
+  const h = document.createElement('h2');
+  h.textContent = text;
+  return h;
+}
+// a modal in the Rules chrome: a title (shown, or only named for screen readers), a body and a Close button.
+// Esc closes it (the browser's own dialog behaviour), and so does a press on the backdrop. While any dialog
+// is open the game takes no input and pauses
+function popup(id, heading, showTitle = true) {
   const dialog = document.createElement('dialog');
   dialog.id = id;
   dialog.className = 'pp-dialog';
-  dialog.setAttribute('aria-labelledby', id + '-title');
-  const title = document.createElement('h2');
-  title.id = id + '-title';
-  title.textContent = heading;
   const body = document.createElement('div');
+  body.className = 'pp-body';
   const form = document.createElement('form');
   form.method = 'dialog';
   // focus starts on Close, so an Enter straight after opening closes the popup rather than following a link
   form.innerHTML = '<button class="pp-link" autofocus>Close</button>';
-  dialog.append(title, body, form);
+  if (showTitle) {
+    dialog.setAttribute('aria-labelledby', id + '-title');
+    const title = subhead(heading);
+    title.id = id + '-title';
+    dialog.append(title, body, form);
+  } else {
+    dialog.setAttribute('aria-label', heading);
+    dialog.append(body, form);
+  }
   dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); });
   return { dialog, body };
 }
