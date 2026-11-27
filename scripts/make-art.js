@@ -51,7 +51,7 @@ const P = {
   ball: '#d8ec48', ballShade: '#a8b838',
   brick: '#a6523c', brickDark: '#86402e', mortar: '#c4b29c',
   asphalt: '#7c7675', asphaltDark: '#666266',
-  blade: '#f2d694', bladeShade: '#d4ac6c',
+  blade: '#f2d694', bladeShade: '#e2c48c',   // the blade's shade is the plaster tone, to keep the palette small
   plaster: '#e2c48c', plasterShade: '#c8a46c', shutter: '#3e7468', door: '#3a6096',
   skin: '#c4926e', skinShade: '#9a6a4c', shirt: '#f6f4ec', shirtShade: '#d6d2cc',
 };
@@ -87,7 +87,23 @@ function title(g, text, x, y, s, gap, { fill = P.paper, edge = P.ink, drop = 2 }
   t.outline(edge, true);
   for (let d = drop; d >= 1; d--) g.draw(new Grid(t.w, t.h).draw(t).map(() => edge), x - 1, y - 2 + d);
   g.draw(t, x - 1, y - 2);
-  return { x0: x - 2, y0: y - 3, x1: x - 1 + t.w, y1: y - 2 + t.h + drop };
+  const b = inked(t);
+  return { x0: x - 1 + b.x0, y0: y - 2 + b.y0, x1: x - 1 + b.x1, y1: y - 2 + b.y1 + drop };
+}
+// the box around a grid's drawn pixels (x1, y1 exclusive)
+function inked(t) {
+  let x0 = t.w, y0 = t.h, x1 = 0, y1 = 0;
+  for (let y = 0; y < t.h; y++) for (let x = 0; x < t.w; x++) if (t.get(x, y) !== null) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + 1); y1 = Math.max(y1, y + 1); }
+  return { x0, y0, x1, y1 };
+}
+// stop the build if a title or the ball strays into the margin that some apps crop
+function inSafe(name, b) {
+  if (b.x0 < SAFE || b.y0 < SAFE || b.x1 > OG_W - SAFE || b.y1 > OG_H - SAFE) throw new Error(`${name} leaves the safe area: ${JSON.stringify(b)}`);
+}
+function placeBall(g, ball, bx, by, name) {
+  const x = Math.round(bx - ball.w / 2), y = Math.round(by - ball.h / 2), b = inked(ball);
+  g.draw(ball, x, y);
+  inSafe(name, { x0: x + b.x0, y0: y + b.y0, x1: x + b.x1, y1: y + b.y1 });
 }
 
 /* The tennis ball seen at radius R: lit from the upper left, shaded underside, a white S-seam, ink outline.
@@ -119,8 +135,8 @@ function tennisBall(R, spin = .5, tilt = .55) {
 
 /* A stepped motion trail: blocks of shrinking height behind the ball, each a step smaller than the last.
    (x, y) is the ball's centre, r its radius, dir the direction it travels (+1 right, -1 left). */
-function trail(g, x, y, r, dir = 1) {
-  const steps = [[.78, 7], [.56, 6], [.34, 5], [.16, 4]];
+function trail(g, x, y, r, dir = 1, n = 4) {
+  const steps = [[.78, 7], [.56, 6], [.34, 5], [.16, 4]].slice(0, n);
   let edge = x - dir * (r - 3);
   steps.forEach(([k, w], i) => {
     const h = Math.round(r * 2 * k), top = Math.round(y - h / 2), gap = 3;
@@ -176,8 +192,9 @@ function bat(hx, hy, tx, ty, wide = 5.5) {
   return g.outline(P.ink);
 }
 
+const TITLE_A_Y = 89;
 function compositionA() {
-  const g = new Grid(OG_W, OG_H), groundY = 86;
+  const g = new Grid(OG_W, OG_H), groundY = 81;
   brickWall(g, 0, 0, OG_W, groundY);
   // the lane in front of the wall: a kerb line, then asphalt with a few patched squares
   g.rect(0, groundY, OG_W, OG_H - groundY, P.asphalt);
@@ -201,14 +218,102 @@ function compositionA() {
   // the ball in flight, centre right, with its trail back towards the stumps
   const R = 19, bx = 132, by = 42, ball = tennisBall(R, 1.75, .1);
   trail(g, bx, by, R, 1);
-  g.draw(ball, bx - ball.w / 2, by - ball.h / 2);
+  placeBall(g, ball, bx, by, 'A ball');
   // the title along the bottom
   const s = 3, gap = 2, w = textWidth('GULLY CRICKET', s, gap), x0 = Math.round((OG_W - w) / 2);
-  title(g, 'GULLY', x0, 94, s, gap, { fill: P.ball });
-  title(g, 'CRICKET', x0 + textWidth('GULLY ', s, gap) + gap, 94, s, gap);
+  inSafe('A title', title(g, 'GULLY', x0, TITLE_A_Y, s, gap, { fill: P.ball }));
+  inSafe('A title', title(g, 'CRICKET', x0 + textWidth('GULLY ', s, gap) + gap, TITLE_A_Y, s, gap));
   return g;
 }
 
-const candidates = { a: compositionA() };
+
+/* One body part: shapes drawn by fn into a fresh layer, an optional shade on one side of an axis, then an ink outline. */
+function part(w, h, fn) { const t = new Grid(w, h); fn(t); return t.outline(P.ink); }
+// a limb from (ax, ay) to (bx, by), shaded on the side the normal (sx, sy) points to
+function limb(t, ax, ay, bx, by, r, col, shade, side = 1, k = .3) {
+  t.capsule(ax, ay, bx, by, r, col);
+  const L = Math.hypot(bx - ax, by - ay), nx = -(by - ay) / L * side, ny = (bx - ax) / L * side;
+  t.map((c, x, y) => c === col && ((x + .5 - ax) * nx + (y + .5 - ay) * ny) > r * k ? shade : c);
+}
+
+/* The batter, facing right, just after a lofted drive: weight on the bent front leg, back heel up,
+   arms through and the bat climbing over the front shoulder. Drawn on its own grid; flip it to face left. */
+function batter() {
+  const W = 120, H = 122, g = new Grid(W, H);
+  const add = layer => g.draw(layer);
+  // back leg: hip, knee, ankle, then the shoe on its toes
+  add(part(W, H, t => { limb(t, 47, 66, 35, 89, 5.5, P.door, P.ink, -1, .62); limb(t, 35, 89, 22, 108, 4.5, P.door, P.ink, -1, .62); }));
+  add(part(W, H, t => t.poly([[17, 105], [25, 109], [29, 116], [20, 117], [14, 112]], P.ink)));
+  // back arm, behind the body
+  add(part(W, H, t => { limb(t, 48, 39, 63, 48, 3.6, P.shirt, P.shirtShade, 1); limb(t, 63, 48, 81, 40, 3.2, P.skin, P.skinShade, 1); }));
+  // the body: shirt, leaning a little forward, belt line at the hips
+  add(part(W, H, t => {
+    t.poly([[44, 33], [62, 31], [66, 40], [63, 66], [43, 67], [41, 50]], P.shirt);
+    t.map((c, x, y) => x < 46 + (y - 33) * -.05 || (x < 50 && y > 50) ? P.shirtShade : c);
+    t.rect(43, 63, 21, 4, P.door);
+    t.poly([[50, 31], [61, 30], [57, 38]], P.shirtShade);                 // open collar
+    t.poly([[52.5, 31], [59, 30.5], [56.5, 35]], P.skinShade);
+    for (let y = 40; y < 62; y += 7) t.set(57 + Math.round((y - 40) * .1), y, P.shirtShade);   // buttons
+  }));
+  // neck and head: the batter looks up after the ball
+  add(part(W, H, t => {
+    t.rect(52, 26, 6, 7, P.skinShade);
+    t.disc(57, 19, 8.5, P.skin);
+    t.each((x, y) => Math.hypot(x - 55, y - 17) < 9 && (x < 56 || y < 13.5 - (x - 56) * .25), P.ink, 44, 6, 68, 28);   // hair: back and top
+    t.set(62, 16, P.ink); t.set(62, 17, P.ink);                                                         // the eye, looking up at the ball
+    t.rect(61, 14, 3, 1, P.ink);                                                                         // brow
+    t.set(66, 19, P.skin); t.set(66, 20, P.skinShade);                                                   // nose
+    t.rect(61, 23, 3, 1, P.skinShade);                                                                   // mouth
+    t.rect(55, 20, 2, 3, P.skinShade);                                                                  // ear
+  }));
+  // front leg: a long stride, knee over the toes, the shoe flat
+  add(part(W, H, t => { limb(t, 58, 66, 84, 82, 5.8, P.door, P.ink, -1, .62); limb(t, 84, 82, 82, 109, 4.6, P.door, P.ink, -1, .62); }));
+  add(part(W, H, t => t.poly([[77, 107], [87, 108], [94, 113], [94, 117], [76, 117]], P.ink)));
+  // the bat, then the front arm and both hands over its handle
+  g.draw(batOn(W, H, 77, 44, 112, 7, 10));
+  add(part(W, H, t => { limb(t, 61, 37, 73, 44, 3.8, P.shirt, P.shirtShade, 1); limb(t, 73, 44, 84, 37, 3.3, P.skin, P.skinShade, 1); }));
+  add(part(W, H, t => { t.disc(83.5, 37.5, 3.6, P.skin); t.disc(80.5, 41, 3.4, P.skin); t.set(84, 39, P.skinShade); t.set(81, 42, P.skinShade); }));
+  return g;
+}
+// the bat drawn onto a w×h layer (bat() draws on the og grid)
+function batOn(w, h, hx, hy, tx, ty, wide) { const b = bat(hx, hy, tx, ty, wide); const g = new Grid(w, h); g.draw(b); return g; }
+const mirror = g => { const m = new Grid(g.w, g.h); for (let y = 0; y < g.h; y++) for (let x = 0; x < g.w; x++) m.set(g.w - 1 - x, y, g.get(x, y)); return m; };
+
+function compositionB() {
+  const g = new Grid(OG_W, OG_H), laneY = 84;
+  // sky, then a run of plastered house fronts with a parapet
+  g.rect(0, 0, OG_W, laneY, P.plaster);
+  g.rect(0, 0, OG_W, 6, P.paper);
+  g.rect(0, 6, OG_W, 3, P.blade);
+  g.rect(0, 9, OG_W, 1, P.ink);
+  for (const x of [78, 168]) g.rect(x, 10, 2, laneY - 10, P.asphalt);                           // drainpipes between houses
+  // a shuttered window and a blue door
+  const win = (x, y) => { g.rect(x - 1, y - 1, 30, 26, P.ink); g.rect(x, y, 28, 24, P.door); g.rect(x + 8, y + 2, 12, 20, P.ink); g.rect(x + 13, y + 2, 2, 20, P.door); for (let k = 0; k < 6; k++) { g.rect(x + 1, y + 3 + k * 3, 6, 1, P.ink); g.rect(x + 21, y + 3 + k * 3, 6, 1, P.ink); } };
+  win(30, 22);
+  g.rect(195, 30, 26, laneY - 30, P.ink); g.rect(197, 32, 22, laneY - 32, P.door); g.rect(207, 32, 2, laneY - 32, P.ink);
+  // footpath, kerb and the lane
+  g.rect(0, laneY, OG_W, 5, P.chalkDim);
+  g.rect(0, laneY + 5, OG_W, 1, P.asphaltDark);
+  g.rect(0, laneY + 6, OG_W, OG_H - laneY - 6, P.asphalt);
+  g.each((x, y) => hash(x >> 2, y >> 2) < .05, P.asphaltDark, 0, laneY + 8, OG_W, OG_H);
+  // the brick stumps up the lane behind the batter: four bricks stacked
+  for (let k = 0; k < 4; k++) { g.rect(224, 98 - k * 4, 11, 4, P.ink); g.rect(225, 99 - k * 4, 9, 2, P.brick); }
+  g.rect(140, 119, 100, 2, P.paper);                                                              // chalk crease
+  g.rect(136, 120, 92, 3, P.asphaltDark); g.rect(146, 123, 70, 1, P.asphaltDark);                // his shadow on the lane
+  // the batter, flipped to face left
+  const fig = mirror(batter());
+  g.draw(fig, 236 - fig.w, 125 - fig.h + 2);
+  // the ball, just off the bat and climbing away to the left, trail back towards the bat
+  const R = 13, bx = 98, by = 29, ball = tennisBall(R, 1.75, .1);
+  trail(g, bx, by, R, -1, 3);
+  placeBall(g, ball, bx, by, 'B ball');
+  // the title, stacked at the lower left
+  const s = 3, gap = 2;
+  inSafe('B title', title(g, 'GULLY', SAFE + 2, 60, s, gap, { fill: P.ball }));
+  inSafe('B title', title(g, 'CRICKET', SAFE + 2, 88, s, gap));
+  return g;
+}
+
+const candidates = { a: compositionA(), b: compositionB() };
 for (const [k, g] of Object.entries(candidates)) out(`art-candidates/og-${k}.png`, png(g, OG_SCALE));
 out('public/og.png', png(candidates[OG_PICK], OG_SCALE));
