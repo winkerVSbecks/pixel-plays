@@ -24,15 +24,19 @@ const css = `
   .pp-dialog { width: min(520px, calc(100vw - 32px)); padding: 16px; border: 1px solid #1c1b19; color: #1c1b19; background: #fff; font: inherit; }
   /* on a short screen the body scrolls inside the dialog, and Close stays in view below it */
   .pp-dialog[open] { display: flex; flex-direction: column; }
-  /* it reaches into the dialog's side padding, so the scroll box does not clip the list numbers that sit in it */
-  .pp-body { overflow-y: auto; min-height: 0; margin: 0 -16px; padding: 0 16px; }
+  .pp-body { overflow-y: auto; min-height: 0; }
   #pp-controls, #pp-rules { width: min(680px, calc(100vw - 32px)); }
   .pp-dialog::backdrop { background: rgba(255, 255, 255, .72); }
   .pp-dialog h2 { margin: 0 0 10px; font: inherit; font-weight: 600; }
-  .pp-dialog ol, .pp-dialog ul { margin: 0 0 8px; padding-left: 18px; }
-  .pp-dialog li { margin-bottom: 8px; }
+  /* lists hang off one left edge: the bullet or number starts at the dialog's padding, and every item's text,
+     wrapped lines too, starts 3 characters in. A list inside an item steps in once more from that text */
+  .pp-dialog ol, .pp-dialog ul { margin: 0 0 8px; padding: 0; list-style: none; counter-reset: pp-item; }
+  .pp-dialog li { position: relative; margin-bottom: 8px; padding-left: 3ch; counter-increment: pp-item; }
+  .pp-dialog li::before { position: absolute; left: 0; content: '•'; }
+  .pp-dialog ol > li::before { content: counter(pp-item) '.'; }
   .pp-dialog li ul { margin: 8px 0 0; }
   .pp-dialog li li { margin-bottom: 4px; }
+  .pp-dialog li li::before { content: '◦'; }
   .pp-dialog strong { font-weight: 600; }
   .pp-dialog p { margin: 0 0 8px; }
   .pp-dialog a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
@@ -80,6 +84,8 @@ export function mount({ controls, rules: ruleList, music }) {
 // a list element, one item per entry; each entry is the nodes and strings that go in its item
 function list(tag, entries) {
   const el = document.createElement(tag);
+  // (Safari stops announcing a list as one once its bullets are drawn in CSS; the role keeps it a list)
+  el.setAttribute('role', 'list');
   el.append(...entries.map(parts => {
     const li = document.createElement('li');
     li.append(...parts);
