@@ -2,8 +2,122 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Pixel Plays</title>
-<meta http-equiv="refresh" content="0; url=balote/">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Gully Cricket</title>
+<meta name="description" content="Street cricket in a lane. Chase a target in 5 overs with 3 wickets and hit into the gaps.">
+<meta name="theme-color" content="#ffffff">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Gully Cricket">
+<meta property="og:description" content="Street cricket in a lane. Chase a target in 5 overs with 3 wickets and hit into the gaps.">
+<meta property="og:url" content="https://play-gully-cricket.netlify.app/">
+<meta property="og:site_name" content="Gully Cricket">
+<meta property="og:image" content="https://play-gully-cricket.netlify.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Pixel-art street cricket: a batter in yellow lofts a tennis ball past fielders in red in a lane of houses, with a large GULLY CRICKET logo in sand and brick colours">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Gully Cricket">
+<meta name="twitter:description" content="Street cricket in a lane. Chase a target in 5 overs with 3 wickets and hit into the gaps.">
+<meta name="twitter:image" content="https://play-gully-cricket.netlify.app/og.png">
+<style>
+  :root { --ink: #1c1b19; --muted: #6b675f; --paper: #fff; --a: #2f4f86; --b: #3e7a56; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--paper); color: var(--ink); }
+  body { font: 13px/1.35 ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace; overflow: hidden; }
+  #stage { position: fixed; inset: 0; display: grid; place-items: center; }
+  canvas { display: block; image-rendering: pixelated; touch-action: none; cursor: pointer; outline: none; }
+  .hud { position: fixed; left: max(16px, env(safe-area-inset-left)); right: max(16px, env(safe-area-inset-right)); display: flex; justify-content: space-between; gap: 16px; pointer-events: none; }
+  #scores { position: fixed; top: max(14px, env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); display: grid; gap: 2px; pointer-events: none; }
+  #bottom { bottom: max(14px, env(safe-area-inset-bottom)); align-items: flex-end; }
+  .team { display: flex; align-items: baseline; gap: 8px; }
+  .team b { font-size: 16px; font-weight: 600; min-width: 2ch; font-variant-numeric: tabular-nums; }
+  .team span { color: var(--muted); font-variant-numeric: tabular-nums; }
+  #you { color: var(--a); } #rival { color: var(--b); }
+  #status { color: var(--muted); text-wrap: balance; }
+  #need, #over-row { color: var(--muted); font-variant-numeric: tabular-nums; }
+  /* the result takes the need row at the top, clear of the status line and buttons at the bottom */
+  #need.result { color: var(--ink); max-width: calc(100vw - 32px); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  #over-row:not([hidden]) { display: flex; }
+  /* this over, one mark per ball: · a dot ball, a number of runs, W a wicket */
+  #this-over { display: flex; gap: .7ch; margin-left: 1ch; }
+  #this-over .w { color: var(--ink); font-weight: 600; }
+  button { pointer-events: auto; font: inherit; color: var(--muted); background: none; border: 0; padding: 10px; margin: -10px; cursor: pointer; }
+  button:hover, button:focus-visible { color: var(--ink); }
+  button:disabled { color: var(--muted); opacity: .45; cursor: default; }
+  /* team picker: same chrome as the shell's rules popup (ink on white, 1px border, monospace) */
+  #picker { width: min(420px, calc(100vw - 24px)); padding: 16px; border: 1px solid var(--ink); color: var(--ink); background: var(--paper); font: inherit; }
+  #picker::backdrop { background: rgba(255, 255, 255, .72); }
+  /* the welcome screen: the title, pick a team, the difficulty and Play (who made it is in About) */
+  #picker h1 { margin: 0 0 12px; font: inherit; font-size: 18px; font-weight: 600; letter-spacing: .02em; }
+  #picker h2 { margin: 0 0 4px; font: inherit; font-weight: 600; }
+  #picker p { margin: 0 0 12px; color: var(--muted); }
+  #picker #picker-new { color: var(--ink); }
+  #picker #level-about { min-height: 4.05em; margin: 6px 0 0; }
+  /* difficulty: five stars as one radio group (arrow keys move and choose); the stars up to the choice are filled */
+  #level { margin: 14px 0 0; padding: 0; border: 0; min-width: 0; }
+  #level legend { padding: 0; margin: 0 0 4px; font-weight: 600; }
+  #stars { display: flex; gap: 2px; margin-left: -6px; }
+  #stars label { position: relative; display: grid; place-items: center; width: 44px; height: 44px; font-size: 26px; line-height: 1; color: var(--muted); cursor: pointer; touch-action: manipulation; }
+  #stars label.on { color: var(--ink); }
+  #stars label:hover { color: var(--ink); }
+  #stars input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+  #stars label:has(input:focus-visible) { outline: 2px solid var(--ink); outline-offset: -2px; }
+  /* Play across the content width, and mid-match the way back to the match without a key (like the rules popup's Close) above it */
+  .welcome-actions { display: grid; gap: 8px; margin-top: 12px; }
+  #picker-back { justify-self: center; margin: 0; color: var(--ink); touch-action: manipulation; }
+  #picker-back[hidden] { display: none; }
+  #play { width: 100%; min-height: 48px; margin: 0; padding: 12px 16px; color: var(--paper); background: var(--ink); border: 1px solid var(--ink); font-weight: 600; touch-action: manipulation; }
+  #play:hover { color: var(--paper); background: #000; }
+  #play:focus-visible { color: var(--paper); outline: 2px solid var(--ink); outline-offset: 2px; }
+  /* the difficulty in play, beside the score */
+  #level-hud { color: var(--muted); letter-spacing: .05em; }
+  #teams { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  #teams button { display: grid; justify-items: center; gap: 6px; margin: 0; padding: 10px 4px 8px; color: var(--ink); border: 1px solid transparent; min-height: 64px; touch-action: manipulation; }
+  #teams button:hover { border-color: var(--ink); }
+  #teams button:focus-visible { background: var(--ink); color: var(--paper); outline: none; }
+  #teams button[aria-pressed="true"] { border-color: var(--ink); }
+  /* the kit as a swatch: a solid chip of the team's shirt colour */
+  .swatch { width: 30px; height: 22px; border: 1px solid var(--ink); background: var(--body); }
+  .buttons { display: flex; gap: 20px; flex-shrink: 0; white-space: nowrap; }
+  /* the touch aerial toggle, under the right thumb just above the bottom bar (clear of a status line wrapped to three
+     lines on a narrow screen): armed, it reads as pressed (ink and paper swapped) until the ball is over */
+  #loft { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(72px, calc(env(safe-area-inset-bottom) + 58px)); z-index: 5;
+    margin: 0; padding: 8px 14px; border: 1px solid currentColor; color: var(--ink); background: var(--paper); touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  #loft[aria-pressed="true"] { color: var(--paper); background: var(--ink); border-color: var(--ink); }
+  #loft[hidden] { display: none; }
+</style>
 </head>
-<body><a href="balote/">Balote</a></body>
+<body>
+<div id="stage"><canvas id="c" tabindex="0" aria-label="Gully cricket in a lane with houses along both sides. You bat at the near end; the bowler runs in from the far end. Hold the arrow keys to aim, then press Space to hit along the ground or Shift+Space to hit in the air; or point and click, with Shift to hit in the air. On a touch screen, tap around the batter, and press aerial first to hit in the air."></canvas></div>
+<div id="scores">
+  <div class="team" id="you"><b id="runs" aria-label="runs for wickets"></b><span id="overs"></span><span id="level-hud"></span></div>
+  <div class="team" id="rival"><span class="name" id="match"></span><span id="target"></span></div>
+  <div id="need"></div>
+  <div id="over-row" hidden><span>this over</span><span id="this-over"></span></div>
+</div>
+<div class="hud" id="bottom">
+  <div id="status" role="status" aria-live="polite"></div>
+  <div class="buttons"><button id="team" type="button">change team</button><button id="mute" type="button" aria-pressed="false">sound on</button></div>
+</div>
+<button id="loft" type="button" aria-pressed="false" hidden>aerial</button>
+<dialog id="picker" aria-labelledby="picker-title" aria-describedby="picker-new">
+  <h1 id="picker-title">Gully Cricket</h1>
+  <p id="picker-new" hidden>Play starts a new match.</p>
+  <h2 id="teams-title">Pick a team</h2>
+  <div id="teams" role="group" aria-labelledby="teams-title"></div>
+  <fieldset id="level" aria-describedby="level-about">
+    <legend>Difficulty</legend>
+    <div id="stars"></div>
+    <p id="level-about" aria-live="polite"></p>
+  </fieldset>
+  <div class="welcome-actions">
+    <button id="picker-back" type="button" hidden>back to the match</button>
+    <button id="play" type="button">Play</button>
+  </div>
+</dialog>
+<script type="module" src="/src/main.js"></script>
+</body>
 </html>
