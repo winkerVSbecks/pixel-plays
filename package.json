@@ -10,7 +10,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "art": "node scripts/make-art.js"
   },
   "devDependencies": {
     "@storybook/html-vite": "^10.6.9",
