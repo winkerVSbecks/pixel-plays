@@ -2,7 +2,7 @@
 
 Street cricket in a lane, shown as an isometric pixel diorama. Chase a target in 5 overs with 3 wickets and hit into the gaps between the fielders. It is plain JavaScript modules with their own software rasteriser, bundled by Vite, with no runtime dependencies. The scene uses no sprites or image assets. The only images are the favicon, the touch icon and the link preview, all made by a script (`npm run art`).
 
-**Play: https://pixel-plays-ruby.vercel.app/**
+**Play: https://play-gully-cricket.netlify.app/**
 
 Gully Cricket by [Varun](https://varun.ca), based on the original concept by [abhi](https://x.com/awwbhi2) and games by [AmirMushich](https://x.com/AmirMushich): [Pixel Plays on GitHub](https://github.com/amirmushichge/pixel-plays). Visual reference for the style: shawn.'s [Small plays](https://x.com/zzzzshawn/status/2111546123546661289); no assets or subjects were copied.
 
@@ -38,7 +38,7 @@ npm run storybook        # parts of the game in Storybook, at http://localhost:6
 npm run build-storybook  # a static Storybook in storybook-static/
 ```
 
-Vercel runs `npm run build` and serves `dist/` (see `vercel.json`). Old `/cricket/` links redirect to `/`.
+Netlify runs `npm run build` and serves `dist/` (see `netlify.toml`). Old `/cricket/` links redirect to `/`. `vercel.json` is kept for the earlier Vercel deploy.
 
 ## Files
 - `index.html` is the page: the canvas, the HUD and the team picker's markup and styles. It loads `src/main.js`.
