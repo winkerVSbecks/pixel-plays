@@ -1,4 +1,4 @@
-// Page chrome: About and Rules popups (top right) and background music. The credits live in About.
+// Page chrome: Controls, Rules and About popups (top right) and background music. The credits live in About.
 const MUSIC_VOLUME = .4;
 // the About popup, one paragraph per line: text, and [text, url] for a link
 const ABOUT = [
@@ -9,35 +9,66 @@ const ABOUT = [
 const css = `
   .pp-link { font: inherit; color: #6b675f; background: none; border: 0; padding: 10px; margin: 0; cursor: pointer; }
   .pp-link:hover, .pp-link:focus-visible { color: #1c1b19; }
-  /* Rules, then About (an info icon) at the far right, share the top right corner, clear of the scores at the top left */
+  /* Controls, Rules, then About (an info icon) at the far right, share the top right corner, clear of the scores at the top left */
   #pp-top { position: fixed; top: max(4px, env(safe-area-inset-top)); right: max(6px, env(safe-area-inset-right)); z-index: 5; display: flex; align-items: center; }
   #pp-about-open { display: grid; place-items: center; padding: 10px; touch-action: manipulation; }
-  #pp-about-open svg { display: block; width: 17px; height: 17px; }
-  #pp-rules-open { touch-action: manipulation; }
-  /* wide enough that the rules read in longer lines (about 60 characters), still clear of the edges on a phone */
+  #pp-top svg { display: block; width: 17px; height: 17px; }
+  #pp-controls-open, #pp-rules-open { touch-action: manipulation; }
+  #pp-controls-open svg { display: none; }
+  /* on a narrow phone Controls is a "?" icon, a pair with the About info icon, so all three stay clear of the
+     score and stars at the top left. Each icon is a 38px square to tap */
+  @media (max-width: 379.98px) {
+    #pp-controls-open { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; }
+    #pp-controls-open span { display: none; }
+    #pp-controls-open svg { display: block; }
+    #pp-rules-open { padding: 10px 8px; }
+    #pp-about-open { width: 38px; height: 38px; padding: 0; }
+  }
+  /* About is a few short lines; Controls and Rules are wider, so their long lines read at about 80 characters.
+     All stay clear of the edges on a phone */
   .pp-dialog { width: min(520px, calc(100vw - 32px)); padding: 16px; border: 1px solid #1c1b19; color: #1c1b19; background: #fff; font: inherit; }
+  /* on a short screen the body scrolls inside the dialog, and Close stays in view below it */
+  .pp-dialog[open] { display: flex; flex-direction: column; }
+  .pp-body { overflow-y: auto; min-height: 0; }
+  #pp-controls, #pp-rules { width: min(680px, calc(100vw - 32px)); }
   .pp-dialog::backdrop { background: rgba(255, 255, 255, .72); }
   .pp-dialog h2 { margin: 0 0 10px; font: inherit; font-weight: 600; }
-  .pp-dialog ol { margin: 0 0 8px; padding-left: 18px; }
-  .pp-dialog li { margin-bottom: 8px; }
+  /* lists hang off one left edge: the bullet or number starts at the dialog's padding, and every item's text,
+     wrapped lines too, starts 3 characters in. A list inside an item steps in once more from that text */
+  .pp-dialog ol, .pp-dialog ul { margin: 0 0 8px; padding: 0; list-style: none; counter-reset: pp-item; }
+  .pp-dialog li { position: relative; margin-bottom: 8px; padding-left: 3ch; counter-increment: pp-item; }
+  .pp-dialog li::before { position: absolute; left: 0; content: '•'; }
+  .pp-dialog ol > li::before { content: counter(pp-item) '.'; }
+  .pp-dialog li ul { margin: 8px 0 0; }
+  .pp-dialog li li { margin-bottom: 4px; }
+  .pp-dialog li li::before { content: '◦'; }
+  .pp-dialog strong { font-weight: 600; }
   .pp-dialog p { margin: 0 0 8px; }
   .pp-dialog a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
   .pp-dialog form { text-align: right; }
   .pp-dialog .pp-link { margin: 0 -10px -10px; color: #1c1b19; touch-action: manipulation; }
 `;
-export function mount({ title: heading, rules: ruleList, music }) {
+export function mount({ controls, rules: ruleList, music }) {
   const style = document.createElement('style');
   style.textContent = css;
   document.head.append(style);
 
-  const rules = popup('pp-rules', heading);
-  const steps = document.createElement('ol');
-  for (const rule of ruleList) {
-    const li = document.createElement('li');
-    li.textContent = rule;
-    steps.append(li);
-  }
-  rules.body.append(steps);
+  const keys = popup('pp-controls', 'Controls');
+  keys.body.append(list('ul', controls.map(([label, text]) => {
+    const name = document.createElement('strong');
+    name.textContent = label;
+    return [name, ' ' + text];
+  })));
+  const controlsOpen = opener('pp-controls-open', keys.dialog);
+  // the word on a wide screen, a "?" icon on a narrow phone; its name is Controls at every width
+  controlsOpen.setAttribute('aria-label', 'Controls');
+  controlsOpen.setAttribute('aria-haspopup', 'dialog');
+  controlsOpen.innerHTML = '<span>Controls</span><svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.3">'
+    + '<circle cx="8" cy="8" r="7"/><path d="M6.1 6.2a1.9 1.9 0 1 1 2.7 1.7c-.5.25-.8.6-.8 1.15v.55" stroke-linecap="round" stroke-linejoin="round"/>'
+    + '<circle cx="8" cy="11.6" r=".55" fill="currentColor" stroke="none"/></svg>';
+
+  const rules = popup('pp-rules', 'Rules');
+  rules.body.append(list('ol', ruleList.map(rule => typeof rule === 'string' ? [rule] : [rule.text, list('ul', rule.items.map(item => [item]))])));
   const rulesOpen = opener('pp-rules-open', rules.dialog);
   rulesOpen.textContent = 'Rules';
 
@@ -55,12 +86,24 @@ export function mount({ title: heading, rules: ruleList, music }) {
 
   const top = document.createElement('div');
   top.id = 'pp-top';
-  top.append(rulesOpen, aboutOpen);
+  top.append(controlsOpen, rulesOpen, aboutOpen);
 
-  document.body.append(top, rules.dialog, about.dialog);
+  document.body.append(top, keys.dialog, rules.dialog, about.dialog);
   startMusic(music);
 }
-// a modal in the Rules chrome: a title, a body and a Close button. Esc closes it (the browser's own dialog
+// a list element, one item per entry; each entry is the nodes and strings that go in its item
+function list(tag, entries) {
+  const el = document.createElement(tag);
+  // (Safari stops announcing a list as one once its bullets are drawn in CSS; the role keeps it a list)
+  el.setAttribute('role', 'list');
+  el.append(...entries.map(parts => {
+    const li = document.createElement('li');
+    li.append(...parts);
+    return li;
+  }));
+  return el;
+}
+// a modal in the page chrome: a title, a body and a Close button. Esc closes it (the browser's own dialog
 // behaviour), and so does a press on the backdrop. While any dialog is open the game takes no input and pauses
 function popup(id, heading) {
   const dialog = document.createElement('dialog');
@@ -71,6 +114,7 @@ function popup(id, heading) {
   title.id = id + '-title';
   title.textContent = heading;
   const body = document.createElement('div');
+  body.className = 'pp-body';
   const form = document.createElement('form');
   form.method = 'dialog';
   // focus starts on Close, so an Enter straight after opening closes the popup rather than following a link
