@@ -14,6 +14,11 @@ const css = `
   #pp-about-open { display: grid; place-items: center; padding: 10px; touch-action: manipulation; }
   #pp-about-open svg { display: block; width: 17px; height: 17px; }
   #pp-controls-open, #pp-rules-open { touch-action: manipulation; }
+  /* on a narrow phone the three sit closer together, so Controls stays clear of the score and stars */
+  @media (max-width: 380px) {
+    #pp-controls-open, #pp-rules-open { padding: 10px 4px; }
+    #pp-about-open { padding: 10px 6px; }
+  }
   /* About is a few short lines; Controls and Rules are wider, so their long lines read at about 80 characters.
      All stay clear of the edges on a phone */
   .pp-dialog { width: min(520px, calc(100vw - 32px)); padding: 16px; border: 1px solid #1c1b19; color: #1c1b19; background: #fff; font: inherit; }
