@@ -25,14 +25,17 @@ export const team = () => [G.bowler, ...G.fielders];
 // is gathered as if it had bounced
 const onFull = b => !b.touched && !b.grounded;
 const canCatch = b => onFull(b) && b.z <= CATCH_Z;
-// (catching and the bowler's return catch get sharper with the difficulty; see difficulty.js). The bowler has his own
-// limits: on the full, bowlerCatchZ and bowlerCatchHot (caught and bowled); once it has bounced, bowlerHot
+// (catching and the bowler's stops get sharper with the difficulty; see difficulty.js). The bowler has his own limits:
+// a ball he can catch off his own bowling (from 3 stars, ownCatch) has its own reach, height and pace (ownCatch*);
+// any other ball he stops only if it is slower than bowlerHot, on the full within bowlerCatchR and below bowlerCatchZ
+const ownCatch = (b, f) => f === G.bowler && difficulty().ownCatch && onFull(b);
 function canGather(b, f) {
   if (f !== G.bowler) return b.z <= (onFull(b) ? CATCH_Z : GATHER_Z);
   const lv = difficulty(), speed = Math.hypot(b.vx, b.vy, b.vz);
-  return onFull(b) ? speed <= lv.bowlerCatchHot && b.z <= lv.bowlerCatchZ : speed <= lv.bowlerHot && b.z <= GATHER_Z;
+  if (ownCatch(b, f)) return speed <= lv.ownCatchHot && b.z <= lv.ownCatchZ;
+  return speed <= lv.bowlerHot && b.z <= (onFull(b) ? lv.bowlerCatchZ : GATHER_Z);
 }
-const reachOf = (b, f) => !onFull(b) ? GATHER_R : f === G.bowler ? difficulty().bowlerCatchR : CATCH_R;
+const reachOf = (b, f) => !onFull(b) ? GATHER_R : ownCatch(b, f) ? difficulty().ownCatchR : f === G.bowler ? difficulty().bowlerCatchR : CATCH_R;
 export function planChase(ball, react) {
   const sim = { ...ball }, players = team(), { catchReact, catchRun } = difficulty();
   while (sim.t < LIVE_MAX) {
@@ -85,7 +88,9 @@ export function stepLive(d) {
     const f = gatherer(b);
     if (f) {
       const dist = Math.hypot(b.x - b.from.x, b.y - b.from.y);
-      const dropped = canCatch(b) && Math.hypot(b.vx, b.vy, b.vz) > CATCH_HOT && rng() < DROP, caught = canCatch(b) && !dropped;
+      // below 3 stars the bowler never catches one off his own bowling: he fields it (see ownCatch)
+      const chance = canCatch(b) && (f !== G.bowler || difficulty().ownCatch);
+      const dropped = chance && Math.hypot(b.vx, b.vy, b.vz) > CATCH_HOT && rng() < DROP, caught = chance && !dropped;
       b.held = f; b.vx = b.vy = b.vz = 0; b.caught = caught;
       if (caught) return finish(d, 'hit', { runs: 0, out: true, how: 'caught', by: f.name || 'bowler', dist });
       return finish(d, 'hit', { runs: runsFor(dist), out: false, how: 'fielded', by: f.name || 'bowler', dist, dropped });

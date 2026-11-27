@@ -196,13 +196,15 @@ export const CATCH_R = .85, CATCH_Z = 2.7;
 // time (DROP). A drop is fielded where it fell, so a hit straight at a deep fielder is a gamble and not a sure out
 export const CATCH_HOT = 10, DROP = .15;
 /* the bowler is the sixth fielder, but he finishes his follow-through off balance right on the straight hit's line,
-   so he only takes a return catch that comes to him (caught and bowled): within BOWLER_CATCH_R of him, no higher
-   than BOWLER_CATCH_Z (head height) and no faster than BOWLER_CATCH_HOT. A straight lofted hit that reaches him on
-   the full is going 13 to 17.5, so only the softest stick (about 1 in 100 lofted straight back) and a hard drive
-   still beats him; over CATCH_HOT he drops it like anyone (DROP). Once it has bounced he gathers only a ball slower
-   than BOWLER_HOT */
-export const BOWLER_CATCH_R = .5, BOWLER_CATCH_Z = 1.6, BOWLER_CATCH_HOT = 13.5;
-export const BOWLER_HOT = 7;                              // a bounced ball still going faster than this is past him before he can get down to it
+   so he only stops a ball that comes to him, close and below the waist (BOWLER_CATCH_R, BOWLER_CATCH_Z), and no
+   faster than BOWLER_HOT; he fields it and never catches it. From 3 stars he can also catch one (caught and bowled,
+   see ownCatch in difficulty.js): on the full, within OWN_CATCH_R, no higher than OWN_CATCH_Z (head height) and no
+   faster than OWN_CATCH_HOT. A straight lofted hit that reaches him on the full is going 13 to 17.5, so only the
+   softest stick (about 2 in 100 lofted straight back) and a hard drive still beats him; over CATCH_HOT he drops it
+   like anyone (DROP) */
+export const BOWLER_CATCH_R = .4, BOWLER_CATCH_Z = 1.1;
+export const BOWLER_HOT = 7;                              // a ball still going faster than this is past him before he can get down to it
+export const OWN_CATCH_R = .55, OWN_CATCH_Z = 1.6, OWN_CATCH_HOT = 13.6;
 export const RUN_DIST = [4, 6, 8.5];
 /* what a loose ball can hit besides the walls: upright drums (x, y, r, h) and boxes (x0, y0, x1, y1, h), matching
    the baked props. A ball above a prop's top lands on it. Plant leaves, the washing and the meter box don't count.

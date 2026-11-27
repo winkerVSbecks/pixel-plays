@@ -20,7 +20,7 @@ Before each match the welcome screen asks for your team (nine kits; the fielding
 | --- | --- | --- |
 | 1 | easy | The game as tuned: a target of 50 to 85, with the timing cue and the movement wedge shown. |
 | 2 | steady | A higher target, 60 to 95. |
-| 3 | tough | Fielders react quicker and run faster to catches, the bowler takes wider return catches, and hitting across a ball that moved costs more and edges more often. |
+| 3 | tough | Fielders react quicker and run faster to catches, the bowler can catch a soft hit straight back at him (caught and bowled), and hitting across a ball that moved costs more and edges more often. |
 | 4 | hard | As 3, with no timing cue: judge the swing yourself. |
 | 5 | expert | As 4, with no movement wedge on the landing ring, and the ball moves 25% more off the pitch. |
 

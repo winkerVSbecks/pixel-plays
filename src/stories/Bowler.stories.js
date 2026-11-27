@@ -31,13 +31,14 @@ export const SpinFollowThrough = { name: 'Spin follow-through', args: { ...DEFAU
 export const WalkBack = { name: 'Walking back', args: { ...DEFAULTS, zoom: 2, time: at({}, 'done', 1.4) } };
 
 /* caught and bowled: a lofted hit straight back that he takes on the full off his own bowling, both hands up, and
-   the fielding side cheers (searched from the seed for a ball he catches) */
+   the fielding side cheers (searched from the seed for a ball he catches). He only catches one from 3 stars (ownCatch
+   in difficulty.js), so the story starts there; at 1 or 2 stars the search finds none and he fields the ball */
 const RETURN = a => ({ seed: a.seed, difficulty: a.difficulty, type: a.type, swing: { dir: 'NW', shot: 'air', timing: 'perfect' } });
 const caughtAndBowled = o => o.how === 'caught' && o.by === 'bowler';
 const catchSc = a => findBall(RETURN(a), caughtAndBowled);
 export const CaughtAndBowled = {
   name: 'Caught and bowled',
-  args: { ...DEFAULTS, zoom: 2, time: +moment(catchSc(DEFAULTS), 'done', .3).toFixed(2) },
+  args: { ...DEFAULTS, difficulty: 3, zoom: 2, time: +moment(catchSc({ ...DEFAULTS, difficulty: 3 }), 'done', .3).toFixed(2) },
   argTypes: { line: { table: { disable: true } }, move: { table: { disable: true } } },
   render: a => stage(catchSc(a), a, { label: 'The bowler catching a hit straight back off his own bowling' }),
 };
