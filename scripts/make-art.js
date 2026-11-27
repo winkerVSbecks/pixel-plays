@@ -53,7 +53,7 @@ const { G } = await import('../src/game/state.js');
 const { BAYER, project } = await import('../src/engine.js');
 const { BATTER } = await import('../src/game/constants.js');
 
-const INK = '#1c1b19', PAPER = '#ffffff';
+const PAPER = '#ffffff';
 const hex = (r, g, b) => '#' + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
 
 /* the game at time t of scenario sc, as the engine draws it: a 360×280 grid. The phase is set to 'pick' (the welcome
@@ -70,11 +70,12 @@ function frame(sc, t) {
 }
 
 /* ---------- the title: GULLY CRICKET as a game logo ----------
-   Pixel capitals, 6×7 with two-pixel stems, are built on a logo grid at CELL logo pixels a glyph pixel, and the logo
-   grid lands on the preview at LOGO px a pixel, the same ×5 as the scene, so its blocks line up with the scene's.
-   Each letter is filled with the tennis ball's yellow-green, lit along the top of every stroke and Bayer-dithered
-   darker towards its foot; a solid olive side is extruded DEPTH logo pixels down and to the right, and an ink outline
-   runs round the lot so it holds up over the rooftops as well as the sky. */
+   Pixel capitals drawn from 6×7 masks, where every mask column and row is given its own width and height in logo
+   pixels: that is how GULLY is set broad and heavy and CRICKET condensed, from the same letters. The logo grid lands
+   on the preview at LOGO px a pixel, the same ×5 as the scene, so its blocks line up with the scene's.
+   GULLY is a dark indigo taken from the scene's shadows, lit along the top of every stroke and Bayer-dithered darker
+   towards its foot; CRICKET is the favicon's cricket-ball red, flat, with the ball's highlight along its tops. Both
+   have an ink side extruded DEPTH logo pixels down and to the right and an ink outline round the lot. */
 const GLYPHS = {
   G: ['.####.', '##..##', '##....', '##.###', '##..##', '##..##', '.#####'],
   U: ['##..##', '##..##', '##..##', '##..##', '##..##', '##..##', '.####.'],
@@ -87,45 +88,48 @@ const GLYPHS = {
   E: ['######', '##....', '##....', '#####.', '##....', '##....', '######'],
   T: ['######', '..##..', '..##..', '..##..', '..##..', '..##..', '..##..'],
 };
-const GAP = 1;
-const LOGO = 5, CELL = 3, DEPTH = 3;
-const BALL_RAMP = ['#f2fbb0', '#d8ec48', '#b2c92c', '#86a01e'];   // lit edge, the ball's own colour, two shades down
-const SIDE = '#4f6216';
+const LOGO = 5, DEPTH = 2, LEAD = 1;   // logo pixel in preview px; the extruded side and the space under a line, in logo px
+const INDIGO = ['#504a6b', '#423d59', '#35314a'], INDIGO_LIT = '#958eb3', TITLE_INK = '#1e1c2b';
+/* the lines, top to bottom. cols and rows: each mask column's width and each row's height (icols for the narrower I);
+   gap: logo pixels between letters. GULLY: 80×80 px letters with 25 px stems; CRICKET: 40×60 px with 15 px stems */
+const TITLE = [
+  { text: 'GULLY', cols: [3, 3, 2, 2, 3, 3], rows: [3, 2, 2, 2, 2, 2, 3], gap: 3, ramp: INDIGO, lit: INDIGO_LIT },
+  { text: 'CRICKET', cols: [2, 1, 1, 1, 1, 2], icols: [1, 2, 1, 1], rows: [2, 2, 1, 2, 1, 2, 2], gap: 2, ramp: [CRICKET_BALL.r], lit: CRICKET_BALL.h },
+];
+const sum = a => a.reduce((s, v) => s + v, 0);
+const edges = a => a.reduce((e, v) => (e.push(e.at(-1) + v), e), [0]);
+const colsOf = (line, ch) => (ch === 'I' && line.icols) || line.cols;
+const lineWidth = line => sum([...line.text].map(ch => sum(colsOf(line, ch)))) + line.gap * (line.text.length - 1);
 
-/* the title's fill mask, one line per entry: [text, left, top, hop] in logo pixels, where hop raises every other
-   letter by that much so the line bounces a little */
-function titleMask(w, h, lines) {
-  const fill = new Grid(w, h), rowOf = new Grid(w, h);
-  for (const [text, left, top, hop] of lines) {
-    let cx = left;
-    [...text].forEach((ch, n) => {
-      const y0 = top - (n % 2 ? hop : 0);
+/* the title flush right: every line's outline ends `right` preview px from the left edge, the first line's outline
+   starts `top` px down, and each line sits LEAD logo px under the side of the one above */
+function logo(right, top) {
+  const w = OG_W / LOGO, h = OG_H / LOGO, fill = new Grid(w, h), at = new Grid(w, h), g = new Grid(w, h);
+  const r = right / LOGO - 2 - DEPTH;   // the last fill column: the side and the outline lie to its right
+  let y0 = top / LOGO + 1;
+  for (const line of TITLE) {
+    const ry = edges(line.rows), hgt = ry.at(-1);
+    let x0 = r + 1 - lineWidth(line);
+    for (const ch of line.text) {
+      const cx = edges(colsOf(line, ch));
       GLYPHS[ch].forEach((row, j) => [...row].forEach((b, k) => {
-        if (b !== '#') return;
-        for (let v = 0; v < CELL; v++) for (let u = 0; u < CELL; u++) {
-          fill.set(cx + k * CELL + u, y0 + j * CELL + v, 'f');
-          rowOf.set(cx + k * CELL + u, y0 + j * CELL + v, String((j * CELL + v) / (7 * CELL - 1)));
-        }
+        if (b === '#') for (let y = ry[j]; y < ry[j + 1]; y++) for (let x = cx[k]; x < cx[k + 1]; x++) { fill.set(x0 + x, y0 + y, 'f'); at.set(x0 + x, y0 + y, { line, t: y / (hgt - 1) }); }
       }));
-      cx += (GLYPHS[ch][0].length + GAP) * CELL;
-    });
+      x0 += cx.at(-1) + line.gap;
+    }
+    y0 += hgt + DEPTH + LEAD;
   }
-  return { fill, rowOf };
-}
-function logo(w, h, lines) {
-  const { fill, rowOf } = titleMask(w, h, lines), g = new Grid(w, h);
   const isFill = (x, y) => fill.get(x, y) !== null;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     if (isFill(x, y)) continue;
-    for (let k = 1; k <= DEPTH; k++) if (isFill(x - k, y - k)) { g.set(x, y, SIDE); break; }
+    for (let k = 1; k <= DEPTH; k++) if (isFill(x - k, y - k)) { g.set(x, y, TITLE_INK); break; }
   }
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     if (!isFill(x, y)) continue;
-    const t = +rowOf.get(x, y);
-    const lit = !isFill(x, y - 1) || !isFill(x - 1, y);
-    g.set(x, y, lit ? BALL_RAMP[0] : BALL_RAMP[1 + Math.max(0, Math.min(2, Math.floor(t * 3.2 - .9 + (BAYER[(y & 3) * 4 + (x & 3)] - .5) * 1.2)))]);
+    const { line, t } = at.get(x, y), n = line.ramp.length;
+    g.set(x, y, !isFill(x, y - 1) ? line.lit : line.ramp[Math.max(0, Math.min(n - 1, Math.floor(t * n - .3 + (BAYER[(y & 3) * 4 + (x & 3)] - .5) * 1.2)))]);
   }
-  return g.outline(INK, true);
+  return g.outline(TITLE_INK, true);
 }
 // the box of everything drawn on a logo grid, in preview pixels
 function boxOf(g) {
@@ -156,28 +160,22 @@ function batterBox(x0, y0, scale) {
    into the house fronts. The frame is 0.16 s after the ball reaches the bat: the bat up and the ball climbing towards
    the houses. (The bowler's follow-through is over about 0.15 s after he lets go, and the ball takes 0.55 s to reach
    the bat, so no frame has both.) */
-const TITLE_LINES = [['GULLY', 104, 14, 1], ['CRICKET', 80, 40, 1]];
-const TITLE_KEEP_OFF = [
-  { x0: 380, y0: 400, x1: 420, y1: 440 },   // the ball
-  { x0: 430, y0: 325, x1: 500, y1: 470 },   // the fielder by the scooter
-  { x0: 550, y0: 390, x1: 615, y1: 525 },   // the fielder at the door
-  { x0: 505, y0: 465, x1: 580, y1: 600 },   // the fielder behind the batter
-];
 const SIX = { seed: 1, you: 'aus', rival: 'zim', type: 'fast', line: 'stumps', move: 'none', length: 3.6, swing: { dir: 'NE', shot: 'air', timing: 'perfect' } };
 const AFTER = .16, X0 = 162, Y0 = 70, SCALE = 5;   // close on the batter at ×5
 
 const og = crop(frame(SIX, moment(SIX, 'contact', AFTER)), X0, Y0, SCALE);
 inSafe('batter', batterBox(X0, Y0, SCALE));
 
-/* the title at the upper right, stepped: GULLY over the rooftops and indented, CRICKET below it reaching further left. It must keep
-   off the people: KEEP_OFF holds the boxes (preview pixels) of the fielder at the scooter, his team-mates and the
-   ball, besides the batter's own box */
-const title = logo(OG_W / LOGO, OG_H / LOGO, TITLE_LINES);
-const tb = boxOf(title);
-inSafe('title', tb);
-const KEEP_OFF = [batterBox(X0, Y0, SCALE), ...TITLE_KEEP_OFF];
-for (const k of KEEP_OFF) if (tb.x0 < k.x1 && k.x0 < tb.x1 && tb.y0 < k.y1 && k.y0 < tb.y1)
-  for (let y = k.y0; y < k.y1; y += LOGO) for (let x = k.x0; x < k.x1; x += LOGO)
-    if (title.get(Math.floor(x / LOGO), Math.floor(y / LOGO)) !== null) throw new Error(`the title covers ${JSON.stringify(k)}`);
+/* the title in the white at the upper right, the same SAFE margin to the top and the right edges. Set flush right, the
+   broad GULLY over the narrower CRICKET steps in towards the corner, as the roofline below it does, so the title
+   follows the diagonal edge of the scene with a band of white between. It must sit wholly on white: it may not
+   touch a single pixel of the scene (the rooftop water tank sits just below the C of CRICKET) */
+const title = logo(OG_W - SAFE, SAFE);
+inSafe('title', boxOf(title));
+for (let y = 0; y < title.h; y++) for (let x = 0; x < title.w; x++) {
+  if (title.get(x, y) === null) continue;
+  for (let v = 0; v < LOGO; v++) for (let u = 0; u < LOGO; u++)
+    if (og.get(x * LOGO + u, y * LOGO + v) !== PAPER) throw new Error(`the title touches the scene at (${x * LOGO + u}, ${y * LOGO + v})`);
+}
 for (let y = 0; y < title.h; y++) for (let x = 0; x < title.w; x++) { const c = title.get(x, y); if (c !== null) og.rect(x * LOGO, y * LOGO, LOGO, LOGO, c); }
 out('public/og.png', png(og));
