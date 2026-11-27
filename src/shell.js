@@ -14,12 +14,14 @@ const css = `
   #pp-about-open { display: grid; place-items: center; padding: 10px; touch-action: manipulation; }
   #pp-about-open svg { display: block; width: 17px; height: 17px; }
   #pp-rules-open { touch-action: manipulation; }
-  /* wide enough that the rules read in longer lines (about 60 characters), still clear of the edges on a phone */
+  /* About is a few short lines; Rules is wider, so its long rules read in longer lines (about 80 characters).
+     Both stay clear of the edges on a phone */
   .pp-dialog { width: min(520px, calc(100vw - 32px)); padding: 16px; border: 1px solid #1c1b19; color: #1c1b19; background: #fff; font: inherit; }
   /* on a short screen the body scrolls inside the dialog, and Close stays in view below it */
   .pp-dialog[open] { display: flex; flex-direction: column; }
   /* it reaches into the dialog's side padding, so the scroll box does not clip the list numbers that sit in it */
   .pp-body { overflow-y: auto; min-height: 0; margin: 0 -16px; padding: 0 16px; }
+  #pp-rules { width: min(680px, calc(100vw - 32px)); }
   .pp-dialog::backdrop { background: rgba(255, 255, 255, .72); }
   .pp-dialog h2 { margin: 0 0 10px; font: inherit; font-weight: 600; }
   .pp-dialog * + h2 { margin-top: 16px; }
