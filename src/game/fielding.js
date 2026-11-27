@@ -26,13 +26,16 @@ export const team = () => [G.bowler, ...G.fielders];
 const onFull = b => !b.touched && !b.grounded;
 const canCatch = b => onFull(b) && b.z <= CATCH_Z;
 // (catching and the bowler's stops get sharper with the difficulty; see difficulty.js). The bowler has his own limits:
-// a ball he can catch off his own bowling (from 3 stars, ownCatch) has its own reach, height and pace (ownCatch*);
-// any other ball he stops only if it is slower than bowlerHot, on the full within bowlerCatchR and below bowlerCatchZ
+// a ball he can catch off his own bowling (from 3 stars, ownCatch) has its own reach, height and pace (ownCatch*), and
+// he takes it only where he stands: he never runs for one. Once he has left the spot his follow-through left him on
+// (d.stand, by more than his reach) he lets a ball on the full go and fields it after it bounces. Any other ball he
+// stops only if it is slower than bowlerHot, on the full within bowlerCatchR and below bowlerCatchZ
 const ownCatch = (b, f) => f === G.bowler && difficulty().ownCatch && onFull(b);
+const standing = () => { const d = G.del, s = d.stand; return !s || Math.hypot(G.bowler.x - s.x, G.bowler.y - s.y) <= difficulty().ownCatchR + 1e-9; };
 function canGather(b, f) {
   if (f !== G.bowler) return b.z <= (onFull(b) ? CATCH_Z : GATHER_Z);
   const lv = difficulty(), speed = Math.hypot(b.vx, b.vy, b.vz);
-  if (ownCatch(b, f)) return speed <= lv.ownCatchHot && b.z <= lv.ownCatchZ;
+  if (ownCatch(b, f)) return standing() && speed <= lv.ownCatchHot && b.z <= lv.ownCatchZ;
   return speed <= lv.bowlerHot && b.z <= (onFull(b) ? lv.bowlerCatchZ : GATHER_Z);
 }
 const reachOf = (b, f) => !onFull(b) ? GATHER_R : ownCatch(b, f) ? difficulty().ownCatchR : f === G.bowler ? difficulty().bowlerCatchR : CATCH_R;
@@ -70,6 +73,7 @@ const runsFor = dist => RUN_DIST.findIndex(r => dist < r) < 0 ? 3 : RUN_DIST.fin
 // step the live ball and the chase up to the delivery's clock, and settle the ball as soon as something ends it
 export function stepLive(d) {
   const b = G.ball, due = G.time - d.tHit;
+  if (!d.stand) d.stand = { x: G.bowler.x, y: G.bowler.y };  // where he stood when it was hit (see standing)
   while (b.t + PHYS_DT <= due + 1e-9) {
     const bounces = b.bounces, vz = b.vz;
     stepBall(b, PHYS_DT);
