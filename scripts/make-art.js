@@ -44,9 +44,7 @@ out('public/apple-touch-icon.png', png(touch, 9));
 /* ---------- the link preview: a frame drawn by the game's own engine ----------
    The real engine, scene and figures run in Node (engine-node.js stands in for the browser), and the Storybook
    scenario harness stages a moment: one seeded delivery and a swing, played to a time. The 360×280 frame is cropped
-   and scaled up by a whole number to exactly 1200×630, and the title is lettered on in ink.
-   Three candidates go to art-candidates/; OG_PICK chooses the one published as public/og.png. */
-const OG_PICK = 1;
+   and scaled up by a whole number to exactly 1200×630, and the title is lettered on in ink. */
 const OG_W = 1200, OG_H = 630, SAFE = 60;   // SAFE: kept clear around the title and the batter, for apps that crop
 
 await import('./engine-node.js');
@@ -115,44 +113,17 @@ function batterBox(x0, y0, scale) {
   return { x0: (a.sx - 9 - x0) * scale, y0: (a.sy - y0) * scale, x1: (a.sx + 9 - x0) * scale, y1: (b.sy + 2 - y0) * scale };
 }
 
-/* the scenarios: Australia (yellow) batting against Zimbabwe (red), fast bowling, a ball on the stumps */
-const BALL = { seed: 1, you: 'aus', rival: 'zim', type: 'fast', line: 'stumps', move: 'none', length: 3.6 };
-const SIX = { ...BALL, swing: { dir: 'NE', shot: 'air', timing: 'perfect' } };          // lofted into the house fronts
-const CATCH = { ...BALL, swing: { dir: 'E', shot: 'air', timing: 'good' } };            // caught behind at fine
+/* the moment: Australia (yellow) batting against Zimbabwe (red), fast bowling, a ball on the stumps, lofted for six
+   into the house fronts. The frame is 0.16 s after the ball reaches the bat: the bat up and the ball climbing towards
+   the houses. (The bowler's follow-through is over about 0.15 s after he lets go, and the ball takes 0.55 s to reach
+   the bat, so no frame has both.) */
+const SIX = { seed: 1, you: 'aus', rival: 'zim', type: 'fast', line: 'stumps', move: 'none', length: 3.6, swing: { dir: 'NE', shot: 'air', timing: 'perfect' } };
+const AFTER = .16, X0 = 162, Y0 = 70, SCALE = 5, UNIT = 8;   // close on the batter at ×5, the title in 8px pixels
 
-/* a candidate: scenario sc at `after` seconds past the ball reaching the bat, the frame's (x0, y0) corner at `scale`,
-   and the title in ink on the paper around the lane: 'below' (one line, centred), 'left' (two lines at the lower
-   left) or 'right' (two lines at the upper right) */
-function candidate(name, { sc, after, x0, y0, scale, unit, title }) {
-  const g = crop(frame(sc, moment(sc, 'contact', after)), x0, y0, scale);
-  inSafe(name + ' batter', batterBox(x0, y0, scale));
-  const lineH = 7 * unit, lead = 3 * unit, boxes = [];
-  if (title === 'below') {
-    const w = textW('GULLY CRICKET') * unit;
-    boxes.push(letter(g, 'GULLY CRICKET', Math.round((OG_W - w) / 2 / scale) * scale, OG_H - SAFE - lineH, unit));
-  } else if (title === 'left') {
-    const top = OG_H - SAFE - 2 * lineH - lead;
-    boxes.push(letter(g, 'GULLY', SAFE, top, unit), letter(g, 'CRICKET', SAFE, top + lineH + lead, unit));
-  } else {
-    const right = OG_W - SAFE;
-    boxes.push(letter(g, 'GULLY', right - textW('GULLY') * unit, SAFE, unit), letter(g, 'CRICKET', right - textW('CRICKET') * unit, SAFE + lineH + lead, unit));
-  }
-  for (const b of boxes) inSafe(name + ' title', b);
-  return g;
-}
-/* (The bowler's follow-through is over about 0.15 s after he lets go, and the ball takes 0.55 s to reach the bat, so
-   no frame has both; these show the shot and what it led to.) */
-const CANDIDATES = {
-  // 1: the batter just after lofting the six, the bat up and the ball climbing towards the houses; the title in the sky
-  1: () => candidate('og-1', { sc: SIX, after: .16, x0: 162, y0: 70, scale: 5, unit: 8, title: 'right' }),
-  // 2: the same moment, the whole lane as the game shows it, floating on the page; the title at the lower left
-  2: () => candidate('og-2', { sc: SIX, after: .16, x0: -28, y0: 33, scale: 3, unit: 9, title: 'left' }),
-  // 3: a catch at fine: the ball in the fielder's hands and the fielding side's arms going up
-  3: () => candidate('og-3', { sc: CATCH, after: .5, x0: 60, y0: 92, scale: 4, unit: 8, title: 'left' }),
-};
-
-for (const [k, make] of Object.entries(CANDIDATES)) {
-  const g = make();
-  out(`art-candidates/og-${k}.png`, png(g));
-  if (+k === OG_PICK) out('public/og.png', png(g));
-}
+const og = crop(frame(SIX, moment(SIX, 'contact', AFTER)), X0, Y0, SCALE);
+inSafe('batter', batterBox(X0, Y0, SCALE));
+// the title in two lines at the upper right, in the sky over the houses
+const lineH = 7 * UNIT, lead = 3 * UNIT, right = OG_W - SAFE;
+inSafe('title', letter(og, 'GULLY', right - textW('GULLY') * UNIT, SAFE, UNIT));
+inSafe('title', letter(og, 'CRICKET', right - textW('CRICKET') * UNIT, SAFE + lineH + lead, UNIT));
+out('public/og.png', png(og));

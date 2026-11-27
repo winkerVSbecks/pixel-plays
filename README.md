@@ -50,7 +50,7 @@ Vercel runs `npm run build` and serves `dist/` (see `vercel.json`). Old `/cricke
 - `src/stories/harness/` drives them: `dom` loads the page markup the game modules expect, `scenario` replays a seeded delivery through the real game modules to any time, and `view` is the story frame and its shared controls.
 - `public/cricket.mp3` is the background track, copied into the build as it is.
 - `public/favicon.svg` is the favicon, a 16×16 pixel red cricket ball with a stitched seam, copied into the build as it is.
-- `public/apple-touch-icon.png` is the same ball as a home-screen icon, and `public/og.png` is the 1200×630 link preview image that the sharing tags in `index.html` point at. The preview is a frame rendered by the game's own engine (a moment staged with the Storybook scenario harness), scaled up by whole pixels, with the title lettered on; `art-candidates/` holds the other compositions.
+- `public/apple-touch-icon.png` is the same ball as a home-screen icon, and `public/og.png` is the 1200×630 link preview image that the sharing tags in `index.html` point at. The preview is a frame rendered by the game's own engine (a moment staged with the Storybook scenario harness), scaled up by whole pixels, with the title lettered on.
 - `scripts/` makes those three images; `npm run art` regenerates them in Node, with no extra dependencies (`scripts/engine-node.js` stands in for the few browser things the engine touches).
 
 ## Visual rules
