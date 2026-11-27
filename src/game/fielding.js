@@ -25,9 +25,13 @@ export const team = () => [G.bowler, ...G.fielders];
 // is gathered as if it had bounced
 const onFull = b => !b.touched && !b.grounded;
 const canCatch = b => onFull(b) && b.z <= CATCH_Z;
-// (catching and the bowler's return catch get sharper with the difficulty; see difficulty.js)
-const canGather = (b, f) => f === G.bowler && Math.hypot(b.vx, b.vy, b.vz) > difficulty().bowlerHot ? false
-  : !onFull(b) ? b.z <= GATHER_Z : b.z <= (f === G.bowler ? difficulty().bowlerCatchZ : CATCH_Z);
+// (catching and the bowler's return catch get sharper with the difficulty; see difficulty.js). The bowler has his own
+// limits: on the full, bowlerCatchZ and bowlerCatchHot (caught and bowled); once it has bounced, bowlerHot
+function canGather(b, f) {
+  if (f !== G.bowler) return b.z <= (onFull(b) ? CATCH_Z : GATHER_Z);
+  const lv = difficulty(), speed = Math.hypot(b.vx, b.vy, b.vz);
+  return onFull(b) ? speed <= lv.bowlerCatchHot && b.z <= lv.bowlerCatchZ : speed <= lv.bowlerHot && b.z <= GATHER_Z;
+}
 const reachOf = (b, f) => !onFull(b) ? GATHER_R : f === G.bowler ? difficulty().bowlerCatchR : CATCH_R;
 export function planChase(ball, react) {
   const sim = { ...ball }, players = team(), { catchReact, catchRun } = difficulty();
@@ -114,9 +118,9 @@ export function passStumps(d) {
   finish(d, 'backstop');
 }
 /* settle the ball. outcome = { runs, out, how } where how is 'wall' or 'chalk' (4 or 6), 'fielded' (0 to 3, with
-   by and dist), 'caught' (out, with by), 'over the wall' (out), 'bowled' (out), or 'beaten' (missed or left, into
-   the drum, no run) */
-const OUTCOME_TEXT = o => o.dropped ? 'dropped! ' + (o.runs ? o.runs + (o.runs > 1 ? ' runs' : ' run') : 'no run') : o.how === 'bowled' || o.how === 'caught' ? o.how : o.how === 'over the wall' ? 'over the wall, out' : o.runs === 4 ? 'four' : o.runs === 6 ? 'six' : o.runs ? o.runs + (o.runs > 1 ? ' runs' : ' run') : 'no run';
+   by and dist), 'caught' (out, with by; by 'bowler' reads "caught and bowled"), 'over the wall' (out), 'bowled'
+   (out), or 'beaten' (missed or left, into the drum, no run) */
+const OUTCOME_TEXT = o => o.dropped ? 'dropped! ' + (o.runs ? o.runs + (o.runs > 1 ? ' runs' : ' run') : 'no run') : o.how === 'caught' && o.by === 'bowler' ? 'caught and bowled' : o.how === 'bowled' || o.how === 'caught' ? o.how : o.how === 'over the wall' ? 'over the wall, out' : o.runs === 4 ? 'four' : o.runs === 6 ? 'six' : o.runs ? o.runs + (o.runs > 1 ? ' runs' : ' run') : 'no run';
 function finish(d, result, outcome) {
   d.stage = 'done';
   d.timer = DONE_T;
