@@ -1,0 +1,14 @@
+.fig svg { width: 100%; max-width: 440px; height: auto; display: block; }
+.fig .limb { stroke-linecap: round; fill: none; }
+.fig .far { opacity: .55; }
+.fig .tgt { fill: none; stroke: var(--chart-2); stroke-width: .025; }
+.fig .ground { stroke: currentColor; opacity: .25; stroke-width: .02; }
+.fig .tl { position: relative; height: 16px; margin: 0 8px; }
+.fig .tick { position: absolute; top: 0; transform: translateX(-50%); font-size: 11px; opacity: .75; white-space: nowrap; }
+.fig .readout { font-variant-numeric: tabular-nums; }
+.fig .why { min-height: 3em; }
+.fig .play { min-width: 5.5em; }
+.fig .scrub { flex: 1; max-width: 460px; display: flex; flex-direction: column; gap: 2px; }
+.fig .scrub input { width: 100%; margin: 0; }
+.fig .group { display: inline-flex; flex-wrap: wrap; gap: 8px; }
+.fig .group[hidden] { display: none; }
