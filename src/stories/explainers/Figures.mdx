@@ -1,0 +1,21 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+import * as FigureStories from './Figures.stories.js';
+
+<Meta title="How it works/Figures" />
+
+# How figures are posed and animated
+
+Every figure is drawn from capsules: one per bone, plus spheres for the head and hair. What changes from frame to frame is where the joints go. That is worked out in `src/game/figures.js`, with the bowler's footwork in `bowler.js` and the batter's swing in `batter.js`.
+
+- **Body specs.** The bowler and the batter are described by a body spec: the pelvis position, the hip and chest turn (`hipYaw`, `chestYaw`), `lean` and `roll`, where the feet and hands are in the world (`footL`, `footR`, `handL`, `handR`), the toe angles, and poles that say which way the elbows point. Knees and elbows are not stored. They are derived each frame.
+- **Two-bone IK.** `ik(a, target, l1, l2, pole)` finds the middle joint of a limb: the thigh and shin are 0.58 each, the upper arm 0.46 and the forearm 0.5. The joint bends towards the pole. If the target is out of reach, the limb straightens and points at it. `bodyFrame()` turns the spec into a spine, neck, head and shoulders, and `drawBody()` runs IK for both legs and both arms, then draws the bones.
+- **Keys and blending.** `keyed(s, keys)` eases between neighbouring `[time, value]` keys and holds the end values outside them. The bowler's lean, roll, chest and hip turn are all keyed this way. `mixBody(a, b, t)` blends two whole specs: positions component by component, angles (`yaw`, `toe`) the short way round, and everything else linearly.
+- **The batter's swing is planned on the keypress.** `planSwing()` runs once, when you press. It picks the shot for the direction (drive, cut, late cut, glance, or pull and sweep), the bat's line and the toe's motion at the point where it will meet the ball, and tilts the bat towards the ball if his hands could not reach it. `batterPlay(t)` then moves the bat round that arc. It goes through the ball at the exact moment it leaves the bat, through for 0.08 s, to the finish 0.3 s after contact, holds until 0.55 s, and is back to waiting by 1.05 s. A lofted shot finishes high, with the hands over his head. A ground shot checks the bat low along the ball's line.
+- **The bowler's run-up is footsteps.** `runPlan(type)` plans each bowler type once, as a list of footfalls. Each has a planted time window and a spot on the ground, and strides lengthen with speed (`0.42 + 0.12 × speed`). `footAt(list, s)` returns a foot either planted, which never slides, or swinging on an arc to its next footfall. The pelvis is lowered just enough for both legs to reach their feet.
+- **Walking.** `gaitBody(x, y, yaw, dist)` walks the bowler back to his mark. It is a cycle of 1.7 units with each foot planted for 56% of it, and it is driven by the distance walked rather than by time, so the planted foot stays still at any speed.
+- **Fielders use the simpler `figure()`.** The engine's `figure()` takes a small pose (crouch, lean, stance, and arm angles that swing only fore and aft) and places the knees and elbows itself. The fielders and the two kids on the step use it. `poseBody()` converts one of those poses into a body spec, so the bowler can blend from his jointed run-up into a fielding pose and back, in 0.14 s.
+- **Everything is a function of time.** `bowlerAt(d, s)`, `batterPlay(t)` and the ball's `ballAt(d, t)` keep no state from the frame before, so a story can jump straight to any moment with its `time` control and scrub back and forth.
+
+The widget below is a 2D side view of the same ideas. It is a simplification: one pole per limb, and its own keys rather than the game's. Scrub the batter's shot keys with an aerial or grounded finish, or switch to the walk cycle. Show the IK targets to see the feet and hand the IK reaches for, and the knees and elbows it solves.
+
+<Canvas of={FigureStories.Figures} sourceState="none" />

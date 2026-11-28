@@ -1,0 +1,12 @@
+.bp svg { display: block; width: 100%; height: auto; }
+.bp .map, .bp .side { max-width: 620px; }
+.bp .lbl { fill: currentColor; opacity: .8; }
+.bp .slbl { font-size: 9px; fill: currentColor; opacity: .7; }
+.bp .res { font-variant-numeric: tabular-nums; font-size: 15px; }
+.bp .res.out { font-weight: 600; color: var(--chart-2); }
+.bp .readout { font-variant-numeric: tabular-nums; font-weight: 400; opacity: .8; }
+.bp .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; opacity: .8; }
+.bp .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+.bp .why { min-height: 3em; }
+.bp .play { min-width: 5.5em; }
+.bp .scrub { flex: 1; max-width: 460px; }
