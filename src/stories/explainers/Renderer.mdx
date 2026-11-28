@@ -1,0 +1,20 @@
+import { Canvas, Meta } from '@storybook/addon-docs/blocks';
+import * as RendererStories from './Renderer.stories.js';
+
+<Meta title="How it works/Renderer" />
+
+# How the engine draws a frame
+
+The lane is drawn by a small software rasteriser in `src/engine.js`. There is no WebGL: every frame is built pixel by pixel on the CPU into a 360×280 buffer, then copied to the canvas in one `putImageData` call.
+
+- **Camera.** `project(x, y, z)` turns a world point into a screen pixel and a depth. It is a fixed isometric view, 10 pixels per world unit: `u = (x − y)/√2`, `v = (x + y)/√2`, then `sx = OX + u·10` and `sy = OY + (v·sin30° − z·cos30°)·10`. The depth is `d = v·cos30° + z·sin30°`, and a pixel is only written if it is nearer than what is already there. `unproject(sx, sy)` goes the other way, from a pixel to the ground point under it.
+- **Three primitives.** `sphere()` shades each pixel of a disc from its normal, with light from the upper left, and picks one of five tones from the colour's ramp (darks drift violet, lights drift warm yellow). A 4×4 Bayer pattern dithers the band edges, except in `'solid'` mode, which figures use so they stay crisp. `capsule()` is a row of spheres spaced at 0.45 of the smaller radius, so limbs, trunks and the bat are all capsules. `box()` paints the three faces you can see (top, then the two sides) in steps of 0.045 units, each face a different tone.
+- **Shadows.** `castShadow()` projects a blob along the sun, to `(x + 0.9z, y − 0.6z)` on the ground, into a shadow mask. `applyShadows()` then tints only the pixels that still show the ground, so shadows never land on a figure.
+- **Edges.** `shadeEdges()` reads the depth buffer: an object's pixels next to bare ground darken into a silhouette, and pixels in front of something more than 0.28 farther away get a warm rim.
+- **Bake once, draw each frame.** `bake()` draws everything that never moves (the paving, chalk, houses, trees, props, their shadows and ambient occlusion) once, and keeps a copy of the pixels and the depth. Each frame `draw()` starts from that copy, adds the figures, the ball and the swaying leaves and grass (stepped at 8 frames a second, so it looks hand-animated), then runs the shadow and edge passes.
+- **Several canvases.** `createTarget(canvas)` gives a canvas its own buffers, and `useTarget(target)` makes it current. That is how every story here keeps its own baked lane next to the others.
+- **Upscaling.** `fit()` scales the 360×280 canvas by a whole number of device pixels, and the page CSS sets `image-rendering: pixelated`, so every buffer pixel stays a sharp square.
+
+The widget below is a 120×90 miniature of the same passes: paving, a brick stack, a figure and a ball. Switch a pass off to see what it does, look at the depth buffer or the shadow mask, and raise the ball to watch its shadow slide away along the sun.
+
+<Canvas of={RendererStories.Renderer} sourceState="none" />
