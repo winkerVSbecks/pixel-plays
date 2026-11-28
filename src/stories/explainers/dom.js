@@ -12,15 +12,16 @@ export function widget(cls, markup) {
 }
 
 /* a requestAnimationFrame loop behind a Play/Pause button. step(dt) runs each frame with the seconds since the last
-   one, and may return false to stop. The loop also stops when the root is no longer in the document (a story was
-   switched or a docs page left), so nothing keeps drawing into a detached widget. beforeStart runs on each Play */
+   one, and may return false to stop. The loop also stops when the root is no longer in the document or no longer
+   visible (a story was switched, a docs page left, or Storybook hid the story root to show a docs page), so nothing
+   keeps drawing into a widget nobody can see. beforeStart runs on each Play */
 export function player(root, button, step, { beforeStart } = {}) {
   let playing = false, last = 0, id = 0;
   const label = () => { button.textContent = playing ? 'Pause' : 'Play'; };
   function frame(ts) {
     id = 0;
     if (!playing) return;
-    if (!root.isConnected) { stop(); return; }
+    if (!root.isConnected || !root.checkVisibility()) { stop(); return; }
     const dt = last ? Math.min((ts - last) / 1000, .1) : 0;
     last = ts;
     if (step(dt) === false) { stop(); return; }
